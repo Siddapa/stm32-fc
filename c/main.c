@@ -27,6 +27,9 @@ int main(void) {
     RCC_APB2ENR_REGISTER |= RCC_APB2ENR_IOPCEN;
     GPIO_CRH_REGISTER(GPIO_PORTC_BASE) &= ~(GPIO_CRH_MODE_MASK(GPIOC_BLINK_NUM));
     GPIO_CRH_REGISTER(GPIO_PORTC_BASE) |= GPIO_CRH_MODE_OUTPUT(GPIOC_BLINK_NUM);
+        
+    GPIO_ODR_REGISTER(GPIO_PORTC_BASE) &= ~GPIO_ODR_PIN(GPIOC_BLINK_NUM);
+	GPIO_ODR_REGISTER(GPIO_PORTC_BASE) |= GPIO_ODR_PIN(GPIOC_BLINK_NUM);
 
     // RCC_APB2ENR_REGISTER |= RCC_APB2ENR_IOPBEN;
 	// GPIO_CRL_REGISTER(GPIO_PORTB_BASE) &= ~(GPIO_CRL_MODE_MASK(GPIOB_BLINK_NUM));
@@ -34,19 +37,19 @@ int main(void) {
 	// GPIO_CRL_REGISTER(GPIO_PORTB_BASE) &= ~(GPIO_CRL_CNF_MASK(GPIOB_BLINK_NUM));
     // GPIO_CRL_REGISTER(GPIO_PORTB_BASE) |= GPIO_CRL_CNF_OUTPUT(GPIOB_BLINK_NUM);
 
-	for (;;) {
-        // Set the output bit.
-        GPIO_ODR_REGISTER(GPIO_PORTC_BASE) |=    GPIO_ODR_PIN(GPIOC_BLINK_NUM);
-        // GPIO_ODR_REGISTER(GPIO_PORTB_BASE) |=    GPIO_ODR_PIN(GPIOB_BLINK_NUM);
-        for (uint32_t i = 0; i < 400000; ++i) {
-            __asm__ volatile("nop");
-        }
-        // Reset it again.
-        GPIO_ODR_REGISTER(GPIO_PORTC_BASE) &= ~GPIO_ODR_PIN(GPIOC_BLINK_NUM);
-        // GPIO_ODR_REGISTER(GPIO_PORTB_BASE) &= ~GPIO_ODR_PIN(GPIOB_BLINK_NUM);
-        for (uint32_t i = 0; i < 1000000; ++i) {
-            __asm__ volatile("nop");
-        }
-    }
-	return 0;
+	// for (;;) {
+    //     // Set the output bit.
+    //     GPIO_ODR_REGISTER(GPIO_PORTC_BASE) |=    GPIO_ODR_PIN(GPIOC_BLINK_NUM);
+    //     // GPIO_ODR_REGISTER(GPIO_PORTB_BASE) |=    GPIO_ODR_PIN(GPIOB_BLINK_NUM);
+    //     for (uint32_t i = 0; i < 400000; ++i) {
+    //         __asm__ volatile("nop");
+    //     }
+    //     // Reset it again.
+    //     GPIO_ODR_REGISTER(GPIO_PORTC_BASE) &= ~GPIO_ODR_PIN(GPIOC_BLINK_NUM);
+    //     // GPIO_ODR_REGISTER(GPIO_PORTB_BASE) &= ~GPIO_ODR_PIN(GPIOB_BLINK_NUM);
+    //     for (uint32_t i = 0; i < 1000000; ++i) {
+    //         __asm__ volatile("nop");
+    //     }
+    // }
+	// return 0;
 }

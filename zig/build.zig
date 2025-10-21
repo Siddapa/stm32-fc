@@ -12,12 +12,12 @@ pub fn build(b: *std.Build) void {
                 .cpu_arch = .thumb,
                 .cpu_model = .{ .explicit = &std.Target.arm.cpu.cortex_m3},
                 .os_tag = .freestanding,
-                .abi = .eabi,
+                .abi = .eabihf,
             }),
-            .optimize = .ReleaseSmall,
+            .optimize = .ReleaseSmall
         }),
     });
-    elf.setLinkerScript(b.path("src/memory.ld"));
+    elf.setLinkerScript(b.path("linkers/memory.ld"));
 
     const bin_cmd = b.addSystemCommand(&[_][]const u8{
         "/home/siddappa/apps/gcc-ane/bin/arm-none-eabi-objcopy",
