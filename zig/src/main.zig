@@ -1,23 +1,47 @@
-const std = @import("std");
-const gpio = @import("gpio.zig");
+const Err = @import("tools/error.zig");
 
+const debug = @import("tools/debug.zig");
+const gpio = @import("tools/gpio.zig");
+const timer = @import("tools/timer.zig");
 
-var tick_counter: u32 = 0;
-
+const ibus_decoder = @import("ibus/decoder.zig");
 
 export fn _start() callconv(.c) void {
-    gpio.port_setup(2, 1);
-    gpio.pin_setup(2, 13, 0b00, 0b01);
-    while (true) {
-        gpio.set_pin(2, 13, 0);
-        sleep(1000000);
-        gpio.set_pin(2, 13, 1);
-        sleep(1000000);
-    }
+    // ibus_decoder.setup() catch unreachable;
+    debug_test() catch unreachable;
 }
 
-fn sleep(time: u32) void {
-    const count = @as(*volatile u32, @ptrCast(&tick_counter));
-    while (count.* < time) { count.* += 1; }
-    count.* = 0;
+// VECTOR TABLE CALLBACKS
+
+export fn ibus_decode() callconv(.c) void {
+    // ibus_decoder.decode();
+}
+
+fn debug_test() !void {
+    const port1: u32 = 2;
+    const pin1: u32 = 13;
+
+    try debug.setup();
+
+    try gpio.port_setup(port1, 1);
+    try gpio.pin_setup(port1, pin1, 0b00, 0b11);
+    try gpio.set_pin(port1, pin1, 1);
+
+    try debug.print("I am the world to you!");
+}
+
+fn blinky() !void {
+    const port1: u32 = 2;
+    const pin1: u32 = 13;
+    const wait_time = 1_000_000;
+
+    try gpio.port_setup(port1, 1);
+    try gpio.pin_setup(port1, pin1, 0b00, 0b11);
+
+    while (true) {
+        try gpio.set_pin(port1, pin1, 0);
+        timer.sleep(wait_time);
+        try gpio.set_pin(port1, pin1, 1);
+        timer.sleep(wait_time);
+    }
 }

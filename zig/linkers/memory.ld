@@ -9,7 +9,7 @@ function.
 MEMORY
 {
   RAM   (xrw)    : ORIGIN = 0x20000000, LENGTH = 20K
-  FLASH (rx)     : ORIGIN = 0x8000000,  LENGTH = 64K
+  FLASH (rx)     : ORIGIN = 0x08000000,  LENGTH = 64K
 }
 
 /* Set stack start to the end of RAM (stack grows from high memory addresses -> low) */
@@ -23,8 +23,10 @@ SECTIONS
     . = ALIGN(4);
 	LONG(__stack);
 	LONG(_start | 1);
-	/* The whole interrupt table is 332 bytes long. Advance to that position. */
-	. += 322;
+	/* The whole interrupt table is 300 bytes long. Advance to that position. */
+	. += 204;
+	LONG(ibus_decode | 1);
+	. += 92;
     . = ALIGN(4);
   } >FLASH
 
@@ -80,13 +82,13 @@ SECTIONS
   .bss :
   {
     /* This is used by the startup in order to initialize the .bss secion */
-    _sbss = .;         /* define a global symbol at bss start */
+    __bss_start__ = .;         /* define a global symbol at bss start */
     *(.bss)
     *(.bss*)
     *(COMMON)
 
     . = ALIGN(4);
-    _ebss = .;         /* define a global symbol at bss end */
+    __bss_end__ = .;         /* define a global symbol at bss end */
   } >RAM
 
   /* TODO: Not sure precisely what this does */

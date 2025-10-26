@@ -18,6 +18,8 @@ pub fn build(b: *std.Build) void {
         }),
     });
     elf.setLinkerScript(b.path("linkers/memory.ld"));
+    const elf_step = b.step("elf", "Build elf");
+    elf_step.dependOn(&elf.step);
 
     const bin_cmd = b.addSystemCommand(&[_][]const u8{
         "/home/siddappa/apps/gcc-ane/bin/arm-none-eabi-objcopy",
@@ -27,6 +29,7 @@ pub fn build(b: *std.Build) void {
         "zig-out/bin/blink.bin"
     });
     const bin_step = b.step("bin", "Generate binary file to be flashed");
+    bin_step.dependOn(elf_step);
     bin_step.dependOn(&bin_cmd.step);
 
     const flash_cmd = b.addSystemCommand(&[_][]const u8{
@@ -37,6 +40,8 @@ pub fn build(b: *std.Build) void {
         "0x08000000",
     });
     const flash_step = b.step("flash", "Flash and reset STM32 board");
+    flash_step.dependOn(elf_step);
+    flash_step.dependOn(bin_step);
     flash_step.dependOn(&flash_cmd.step);
 
     b.default_step.dependOn(&elf.step);
