@@ -18,20 +18,21 @@ export fn ibus_decode() callconv(.c) void {
 }
 
 fn debug_test() !void {
-    const port1: u32 = 2;
-    const pin1: u32 = 13;
-
     try debug.setup();
 
-    try gpio.port_setup(port1, 1);
-    try gpio.pin_setup(port1, pin1, 0b00, 0b11);
-    try gpio.set_pin(port1, pin1, 1);
+    try gpio.port_setup(.C, 1);
+    try gpio.pin_setup(.C, 13, 0b00, 0b11);
+    try gpio.set_pin(.C, 13, 1);
 
-    try debug.print("I am the world to you!");
+    // var i: u8 = 0;
+    // while (true) {
+    //     try debug.print("{d}\n", .{i});
+    //     i += 1;
+    // }
 }
 
 fn blinky() !void {
-    const port1: u32 = 2;
+    const port1: gpio.PORTS = .C;
     const pin1: u32 = 13;
     const wait_time = 1_000_000;
 
