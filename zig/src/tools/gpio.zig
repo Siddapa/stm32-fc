@@ -4,9 +4,9 @@ const assert = std.debug.assert;
 const Err = @import("error.zig").Err;
 
 
-const PERIPHERAL_BASE: u32 = 0x4000_0000;
-const RCC_BASE: u32 = PERIPHERAL_BASE + 0x0002_1000;
-const RCC_APB2: u32 = RCC_BASE + 0x18;
+const PERIPHERAL: u32 = 0x4000_0000;
+const RCC: u32 = PERIPHERAL + 0x0002_1000;
+const RCC_APB2ENR: u32 = RCC + 0x18;
 
 const CRL_OFFSET: u32 = 0x00;
 const CRH_OFFSET: u32 = 0x04;
@@ -14,7 +14,7 @@ const ODR_OFFSET: u32 = 0x0C;
 
 const MODE_CNF_MASK: u32 = 0b1111;
 
-pub const PORTS = enum(u3) {
+pub const PORT = enum(u3) {
     A = 0,
     B = 1,
     C = 2,
@@ -25,29 +25,29 @@ pub const PORTS = enum(u3) {
 };
 
 const PORT_MAP = [7]u32{
-    PERIPHERAL_BASE + 0x0001_0800, // Port A
-    PERIPHERAL_BASE + 0x0001_0C00, //      B
-    PERIPHERAL_BASE + 0x0001_1000, //      C
-    PERIPHERAL_BASE + 0x0001_1400, //      D
-    PERIPHERAL_BASE + 0x0001_1800, //      E
-    PERIPHERAL_BASE + 0x0001_1C00, //      F
-    PERIPHERAL_BASE + 0x0001_2000, //      G
+    PERIPHERAL + 0x0001_0800, // Port A
+    PERIPHERAL + 0x0001_0C00, //      B
+    PERIPHERAL + 0x0001_1000, //      C
+    PERIPHERAL + 0x0001_1400, //      D
+    PERIPHERAL + 0x0001_1800, //      E
+    PERIPHERAL + 0x0001_1C00, //      F
+    PERIPHERAL + 0x0001_2000, //      G
 };
 
 
-pub fn port_setup(comptime port: PORTS, comptime output: u32) Err!void {
+pub fn port_setup(comptime port: PORT, comptime output: u32) Err!void {
     comptime {
         assert(output_bounds(output));
     }
 
-    const apb2_addr: *volatile u32 = @as(*volatile u32, @ptrFromInt(RCC_APB2));
+    const apb2_addr: *volatile u32 = @as(*volatile u32, @ptrFromInt(RCC_APB2ENR));
 
     const port_offset: u5 = @intCast(@intFromEnum(port) + 2);
     apb2_addr.* &= ~(@as(u32, 1) << port_offset);
     apb2_addr.* |= output << port_offset;
 }
 
-pub fn pin_setup(comptime port: PORTS, comptime pin: u5, comptime cnf: u32, comptime mode: u32) Err!void {
+pub fn pin_setup(comptime port: PORT, comptime pin: u5, comptime cnf: u32, comptime mode: u32) Err!void {
     comptime {
         assert(setting_bounds(cnf));
         assert(setting_bounds(mode));
@@ -64,7 +64,7 @@ pub fn pin_setup(comptime port: PORTS, comptime pin: u5, comptime cnf: u32, comp
     cr_addr.* |= ((mode << pin_offset) | (cnf << (pin_offset + 2)));
 }
 
-pub fn set_pin(comptime port: PORTS, comptime pin: u5, comptime output: u32) Err!void {
+pub fn set_pin(comptime port: PORT, comptime pin: u5, comptime output: u32) Err!void {
     comptime {
         assert(output_bounds(output));
     }
@@ -85,14 +85,14 @@ fn setting_bounds(comptime setting: u32) bool {
 }
 
 
-fn get_crl_addr(port: PORTS) *volatile u32 {
+fn get_crl_addr(port: PORT) *volatile u32 {
     return @as(*volatile u32, @ptrFromInt(PORT_MAP[@intFromEnum(port)] + CRL_OFFSET));
 }
 
-fn get_crh_addr(port: PORTS) *volatile u32 {
+fn get_crh_addr(port: PORT) *volatile u32 {
     return @as(*volatile u32, @ptrFromInt(PORT_MAP[@intFromEnum(port)] + CRH_OFFSET));
 }
 
-fn get_odr_addr(port: PORTS) *volatile u32 {
+fn get_odr_addr(port: PORT) *volatile u32 {
     return @as(*volatile u32, @ptrFromInt(PORT_MAP[@intFromEnum(port)] + ODR_OFFSET));
 }
