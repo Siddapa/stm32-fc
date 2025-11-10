@@ -1,17 +1,17 @@
 const std = @import("std");
-const usart = @import("../tools/usart.zig");
+const usart = @import("peripherals/usart.zig");
 
 
-pub fn setup() !void {
+pub fn setup() void {
     // Decoding from USART RX1 - A10
     // PCLK2 defaulted to 8 MH
     
-    try usart.setup(.ONE, .OUTPUT, 0b0, 0b0, 0b00, 0b0000_0000_0100_0101);
+    usart.setup(.ONE, .OUTPUT, .EIGHT, false, .EVEN_OR_NULL, .ONE, false, 0b0000_0000_0100_0101);
 }
 
-pub fn print(comptime str: []const u8, args: anytype) !void {
+pub fn print(comptime str: []const u8, args: anytype) void {
     var buffer: [1024]u8 = undefined;
-    const formatted_str = try std.fmt.bufPrint(&buffer, str, args);
+    const formatted_str = std.fmt.bufPrint(&buffer, str, args) catch unreachable;
 
     for (formatted_str) |char| {
         while (usart.shifting_data(.ONE)) {}

@@ -1,49 +1,96 @@
-// Decoding from USART RX1 - A10
-// PCLK2 defaulted to 8 MHz
+const std = @import("std");
+
+const usart = @import("../tools/peripherals/usart.zig");
+const gpio = @import("../tools/peripherals/gpio.zig");
+const dma = @import("../tools/peripherals/dma.zig");
+const debug = @import("../tools/debug.zig");
+const Err = @import("../tools/error.zig").Err;
+
+const TRANSMIT_CHANNEL = enum (u4) {
+    LEFT_Y  = 3,
+    LEFT_X  = 4,
+    RIGHT_X = 1,
+    RIGHT_Y = 2,
+    SWA     = 5,
+    SWB     = 6,
+};
+
+const CHANNEL_DATA = struct {
+    left_y:  u16,  // 1000-2000
+    left_x:  u16,  // 1000-2000
+    right_y: u16,  // 1000-2000
+    right_x: u16,  // 1000-2000
+    swa:     bool, // 1000|2000
+    swb:     bool, // 1000|2000
+
+    pub fn format(
+        self: CHANNEL_DATA,
+        writer: anytype
+    ) !void {
+        try writer.print("Left_Y: {d}, Left_X: {d}, Right_Y: {d}, Right_X: {d}, SWA: {}, SWB: {}", .{
+            self.left_y,
+            self.left_x,
+            self.right_y,
+            self.right_x,
+            self.swa,
+            self.swb
+        });
+    }
+};
+
+var transmit_data: CHANNEL_DATA = .{
+    .left_y  = 0,
+    .left_x  = 0,
+    .right_y = 0,
+    .right_x = 0,
+    .swa     = false,
+    .swb     = false,
+};
+
+const frame_buffer_addr: u32 = 0x2000_0030; // 0x20000_0000 - 0x20000_0020
+// const transmit_data_addr: u32 = 0x2000_0030;
+const frame_buffer: []volatile u8 = @as([*]volatile u8, @ptrFromInt(frame_buffer_addr))[0..32];
+// const transmit_data: *volatile CHANNEL_DATA = @ptrFromInt(transmit_data_addr);
 
 
-const gpio = @import("../tools/gpio.zig");
-
-
-const PERIPHERAL: u32 = 0x4000_0000;
-
-const RCC: u32 = PERIPHERAL + 0x0002_1000;
-const RCC_APB2ENR_REG: *volatile u32 = @ptrFromInt(RCC + 0x18);
-
-const USART1: u32 = PERIPHERAL + 0x0001_3800;
-const USART1_DATA_REG: *volatile u32 = @ptrFromInt(USART1 + 0x04);
-const USART1_BRR_REG: *volatile u32 = @ptrFromInt(USART1 + 0x08);
-const USART1_CR1_REG: *volatile u32 = @ptrFromInt(USART1 + 0x0C);
-const USART1_CR2_REG: *volatile u32 = @ptrFromInt(USART1 + 0x10);
-
-const built_frame: [32]u8 = undefined;
-const frame_buffer: [32]u8 = undefined;
-var byte_pos: u5 = 0;
-
-pub fn setup() !void {
-    // USART1's RX on A10 is a GPIO so that also must be enabled
-    try gpio.port_setup(0, 1);
-    try gpio.pin_setup(0, 10, @as(u32, 0b01), @as(u32, 0b00)); // Supposedly must be a floating input
-
-    //                    Enable USART1 in RCC     Enable Alternate Function in RCC
-    RCC_APB2ENR_REG.* &= ~((@as(u32, 0b1) << 14) | (@as(u32, 0b1) << 0));
-    RCC_APB2ENR_REG.* |=  ((@as(u32, 0b1) << 14) | (@as(u32, 0b1) << 0));
-
-    //                   Enable USART             Word Length             Parity Enable           Even Parity            Receive Enable
-    USART1_CR1_REG.* &= ~((@as(u32, 0b1) << 13) | (@as(u32, 0b1) << 12) | (@as(u32, 0b1) << 10) | (@as(u32, 0b1) << 9) | (@as(u32, 0b1) << 2));
-    USART1_CR1_REG.* |=  ((@as(u32, 0b1) << 13) | (@as(u32, 0b0) << 12) | (@as(u32, 0b1) << 10) | (@as(u32, 0b0) << 9) | (@as(u32, 0b1) << 2));
-
-    //                   2 Stop Bits
-    USART1_CR2_REG.* &= ~((@as(u32, 0b11) << 12));
-    USART1_CR2_REG.* |=  ((@as(u32, 0b10) << 12));
-
-    //                   Total BRR Value of 69
-    USART1_BRR_REG.* &= ~((@as(u32, 0b1111_1111_1111) << 4) | (@as(u32, 0b1111) << 0));
-    USART1_BRR_REG.* |=  ((@as(u32, 0b0000_0010_0100) << 4) | (@as(u32, 0b0101) << 0));
+pub fn setup() void {
+    dma.setup(.ONE, .SIX, 32, @intFromPtr(usart.get_data_reg(.TWO)), frame_buffer_addr, .HIGH, .ONE, .ONE, true, true, .FROM_PERIPHERAL, false, true, true);
+    usart.setup(.TWO, .INPUT, .EIGHT, false, .EVEN_OR_NULL, .TWO, true, 0b0000_0000_0100_0101);
 }
 
+pub fn decode() !void {
+    // TODO Finish checksum validation
+    // Calculate checksum from non-checksum frame bytes
+    // Relying on checksum to invalidate corrupted frames where invariants of channel types exist (e.g. <1000 or >2000)
+    // const checksum: u16 = @as(u16, frame_buffer[30]) | (@as(u16, frame_buffer[31]) << 8);
+    // var sum: u32 = 0; // TODO Find more efficient way to calculate checksum
+    // for (frame_buffer[0..30]) |frame_byte| {
+    //     sum += frame_byte;
+    // }
 
-pub fn decode() void {
-    frame_buffer[byte_pos] = @as(u32, USART1_DATA_REG.* & 0xFF);
-    byte_pos = (byte_pos + 1) % 32;
+    // if (checksum != sum) {
+    //     debug.print("{} {}\n", .{checksum, sum});
+    //     return Err.CorruptedIBUSFrame;
+    // }
+
+    transmit_data.left_y  =  decode_channel(.LEFT_Y);
+    transmit_data.left_x  =  decode_channel(.LEFT_X);
+    transmit_data.right_y =  decode_channel(.RIGHT_Y);
+    transmit_data.right_x =  decode_channel(.RIGHT_X);
+    transmit_data.swa     = (decode_channel(.SWA) == 2000);
+    transmit_data.swb     = (decode_channel(.SWB) == 2000);
+}
+
+fn decode_channel(channel: TRANSMIT_CHANNEL) u16 {
+    const first_byte: u4 = @intFromEnum(channel) * 2;
+    return @as(u16, frame_buffer[first_byte]) |
+          (@as(u16, frame_buffer[first_byte + 1]) << 8);
+}
+
+pub fn get_frame_buffer() []volatile const u8 {
+    return frame_buffer;
+}
+
+pub fn get_transmit_data() CHANNEL_DATA {
+    return transmit_data;
 }

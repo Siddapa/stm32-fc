@@ -1,7 +1,7 @@
 const std = @import("std");
 const assert = std.debug.assert;
 
-const Err = @import("error.zig").Err;
+const Err = @import("../error.zig").Err;
 
 
 const PERIPHERAL: u32 = 0x4000_0000;
@@ -35,7 +35,7 @@ const PORT_MAP = [7]u32{
 };
 
 
-pub fn port_setup(comptime port: PORT, comptime output: u32) Err!void {
+pub fn port_setup(comptime port: PORT, comptime output: u32) void {
     comptime {
         assert(output_bounds(output));
     }
@@ -47,7 +47,7 @@ pub fn port_setup(comptime port: PORT, comptime output: u32) Err!void {
     apb2_addr.* |= output << port_offset;
 }
 
-pub fn pin_setup(comptime port: PORT, comptime pin: u5, comptime cnf: u32, comptime mode: u32) Err!void {
+pub fn pin_setup(comptime port: PORT, comptime pin: u4, comptime cnf: u32, comptime mode: u32) void {
     comptime {
         assert(setting_bounds(cnf));
         assert(setting_bounds(mode));
@@ -56,15 +56,14 @@ pub fn pin_setup(comptime port: PORT, comptime pin: u5, comptime cnf: u32, compt
     const cr_addr: *volatile u32 = switch (pin) {
         0...7 => get_crl_addr(port),
         8...15 => get_crh_addr(port),
-        else => unreachable
     };
 
-    const pin_offset: u5 = @intCast((pin % 8) * 4);
+    const pin_offset: u5 = @as(u5, @intCast(pin % 8)) * 4;
     cr_addr.* &= ~(MODE_CNF_MASK << pin_offset);
     cr_addr.* |= ((mode << pin_offset) | (cnf << (pin_offset + 2)));
 }
 
-pub fn set_pin(comptime port: PORT, comptime pin: u5, comptime output: u32) Err!void {
+pub fn set_pin(comptime port: PORT, comptime pin: u5, comptime output: u32) void {
     comptime {
         assert(output_bounds(output));
     }
