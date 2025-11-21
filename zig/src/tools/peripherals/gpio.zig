@@ -24,6 +24,11 @@ pub const PORT = enum(u3) {
     G = 6,
 };
 
+pub const PIN_SETTING = struct {
+    cnf: u32,
+    mode: u32
+};
+
 const PORT_MAP = [7]u32{
     PERIPHERAL + 0x0001_0800, // Port A
     PERIPHERAL + 0x0001_0C00, //      B

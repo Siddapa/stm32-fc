@@ -38,24 +38,15 @@ const CHANNEL_DATA = struct {
     }
 };
 
-var transmit_data: CHANNEL_DATA = .{
-    .left_y  = 0,
-    .left_x  = 0,
-    .right_y = 0,
-    .right_x = 0,
-    .swa     = false,
-    .swb     = false,
-};
-
-const frame_buffer_addr: u32 = 0x2000_0030; // 0x20000_0000 - 0x20000_0020
-// const transmit_data_addr: u32 = 0x2000_0030;
+const frame_buffer_addr: u32 = 0x2000_0000; // 0x20000_0000 - 0x20000_0020
+const transmit_data_addr: u32 = 0x2000_0030;
 const frame_buffer: []volatile u8 = @as([*]volatile u8, @ptrFromInt(frame_buffer_addr))[0..32];
-// const transmit_data: *volatile CHANNEL_DATA = @ptrFromInt(transmit_data_addr);
+const transmit_data: *volatile CHANNEL_DATA = @ptrFromInt(transmit_data_addr);
 
 
 pub fn setup() void {
     dma.setup(.ONE, .SIX, 32, @intFromPtr(usart.get_data_reg(.TWO)), frame_buffer_addr, .HIGH, .ONE, .ONE, true, true, .FROM_PERIPHERAL, false, true, true);
-    usart.setup(.TWO, .INPUT, .EIGHT, false, .EVEN_OR_NULL, .TWO, true, 0b0000_0000_0100_0101);
+    usart.setup(.TWO, .INPUT, .EIGHT, false, .EVEN_OR_NULL, .TWO, true, 0b0000_0000_0100_0101, false);
 }
 
 pub fn decode() !void {
@@ -91,6 +82,6 @@ pub fn get_frame_buffer() []volatile const u8 {
     return frame_buffer;
 }
 
-pub fn get_transmit_data() CHANNEL_DATA {
+pub fn get_transmit_data() *volatile const CHANNEL_DATA {
     return transmit_data;
 }

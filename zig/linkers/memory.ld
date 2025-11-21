@@ -17,28 +17,19 @@ PROVIDE(__stack = ORIGIN(RAM) + LENGTH(RAM));
 
 SECTIONS
 {
-	/* Ensuring our vector table is placed at the beginning of FLASH */
-	.isr_vector :
-	{
-		KEEP(*(.isr_vector))
-		. = ALIGN(4);
-		LONG(__stack);
-		LONG(_start | 1);
-		/* The whole interrupt table is 300 bytes long. Advance to that position. */
-		KEEP(*(.isr_vector))
-		. += 292;
-		. = ALIGN(4);
-  } >FLASH
-
   /* Program code and other data goes into FLASH */
   .text :
   {
 	  . = ALIGN(4);
+	  LONG(__stack);
+	  LONG(_start | 1);
+
+	  /* FILL(0); */
+	  . = ADDR(.text) + 304;
+	  /* LONG(DMA1_Channel5_IRQHandler | 1); */
+
 	  *(.text)
-		  *(.text*)
-		  *(.glue_7)         /* glue arm to thumb code, TODO: Likely not required if not mixing thumb/arm ISAs */
-		  *(.glue_7t)        /* glue thumb to arm code, TODO: Likely not required if not mixing thumb/arm ISAs */
-		  . = ALIGN(4);
+	  . = ALIGN(4);
   } >FLASH
 
   /* Constant data */
@@ -89,8 +80,6 @@ SECTIONS
 	  _ebss = .;         /* define a global symbol at bss end */
   } >RAM
 
-  /* TODO: Not sure precisely what this does */
-  .ARM.attributes 0 : { *(.ARM.attributes) }
 }
 
 

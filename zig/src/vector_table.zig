@@ -1,6 +1,5 @@
 const std = @import("std");
-
-const ibus_decode = @import("ibus/decoder.zig").decode;
+const dshot = @import("protocols/dshot.zig");
 
 pub fn exportVectorTable() void {
     @export(&vector_table, .{
@@ -73,7 +72,7 @@ const VectorTable = extern struct {
     DMA1_Channel2_IRQHandler: IsrFunction = defaultHandler,
     DMA1_Channel3_IRQHandler: IsrFunction = defaultHandler,
     DMA1_Channel4_IRQHandler: IsrFunction = defaultHandler,
-    DMA1_Channel5_IRQHandler: IsrFunction = defaultHandler,
+    DMA1_Channel5_IRQHandler: IsrFunction = dshot.complete_transfer,
     DMA1_Channel6_IRQHandler: IsrFunction = defaultHandler,
     DMA1_Channel7_IRQHandler: IsrFunction = defaultHandler,
     ADC_IRQHandler: IsrFunction = defaultHandler,

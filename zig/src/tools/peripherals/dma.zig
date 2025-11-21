@@ -1,3 +1,5 @@
+const debug = @import("../debug.zig");
+
 const PERIPHERAL: u32 = 0x4000_0000;
 const RCC: u32 = PERIPHERAL + 0x0002_1000;
 
@@ -104,8 +106,15 @@ pub fn setup(
                    (@as(u32, @intFromBool(enable))                      << 0));
 }
 
+pub fn get_isr_reg(dma: DMA) *volatile u32 {
+    return @as(*volatile u32, @ptrFromInt(DMA_MAP[@intFromEnum(dma)] + ISR_OFFSET));
+}
 
-fn get_ccr_reg(dma: DMA, channel: CHANNEL) *volatile u32 {
+pub fn get_ifcr_reg(dma: DMA) *volatile u32 {
+    return @as(*volatile u32, @ptrFromInt(DMA_MAP[@intFromEnum(dma)] + IFCR_OFFSET));
+}
+
+pub fn get_ccr_reg(dma: DMA, channel: CHANNEL) *volatile u32 {
     return @as(*volatile u32, @ptrFromInt(DMA_MAP[@intFromEnum(dma)] + CCR_OFFSET + (20 * @as(u32, @intCast(@intFromEnum(channel) - 1)))));
 }
 
@@ -120,4 +129,34 @@ fn get_cpar_reg(dma: DMA, channel: CHANNEL) *volatile u32 {
 
 fn get_cmar_reg(dma: DMA, channel: CHANNEL) *volatile u32 {
     return @as(*volatile u32, @ptrFromInt(DMA_MAP[@intFromEnum(dma)] + CMAR_OFFSET + (20 * @as(u32, @intCast(@intFromEnum(channel) - 1)))));
+}
+
+// Doesn't support DMA2
+pub fn transfer_complete(channel: CHANNEL) bool {
+    const check_bit: u5 = switch(channel) {
+        .ONE => 1,
+        .TWO => 5,
+        .THREE => 9,
+        .FOUR => 13,
+        .FIVE => 17,
+        .SIX => 21,
+        .SEVEN => 25
+    };
+
+    return ((get_isr_reg(.ONE).* & (@as(u32, 0b1) << check_bit)) > 0);
+}
+
+// Doesn't support DMA2
+pub fn clear_transfer_complete(channel: CHANNEL) void {
+    const check_bit: u5 = switch(channel) {
+        .ONE => 1,
+        .TWO => 5,
+        .THREE => 9,
+        .FOUR => 13,
+        .FIVE => 17,
+        .SIX => 21,
+        .SEVEN => 25
+    };
+
+    get_ifcr_reg(.ONE).* |= (@as(u32, 0b1) << check_bit);
 }

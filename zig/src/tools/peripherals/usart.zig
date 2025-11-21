@@ -1,6 +1,7 @@
 const std = @import("std");
 const assert = std.deubg.assert;
 
+const afio = @import("afio.zig");
 const gpio = @import("gpio.zig");
 const debug = @import("../debug.zig");
 
@@ -8,8 +9,6 @@ const debug = @import("../debug.zig");
 const PERIPHERAL: u32 = 0x4000_0000;
 const RCC: u32 = PERIPHERAL + 0x0002_1000;
 
-const RCC_CR:      u32 = RCC + 0x00;
-const RCC_CFGR:    u32 = RCC + 0x04;
 const RCC_APB2ENR: u32 = RCC + 0x18;
 const RCC_APB1ENR: u32 = RCC + 0x1C;
 
@@ -28,8 +27,8 @@ pub const USART = enum (u2){
 };
 
 pub const DIRECTION = enum(u1) {
-    INPUT,
-    OUTPUT
+    INPUT = 1,
+    OUTPUT = 0
 };
 
 pub const WORD_LEN = enum(u1) {
@@ -49,7 +48,7 @@ pub const STOP_BITS = enum(u2) {
     ONE_HALF = 0b11,
 };
 
-pub const USART_MAP = [3]u32 {
+pub const USART_MAP = [3]u32{
     PERIPHERAL + 0x0001_3800, // USART1
     PERIPHERAL + 0x0000_4400, //      2
     PERIPHERAL + 0x0000_4800, //      3
@@ -64,11 +63,12 @@ pub fn setup(
     comptime parity_type: PARITY_TYPE,
     comptime stop_bits: STOP_BITS,
     comptime dma: bool,
-    comptime brr: u12
+    comptime brr: u12,
+    comptime remap: bool
 ) void {
     const rcc_en_reg: *volatile u32 = switch (usart) {
         .ONE =>        @as(*volatile u32, @ptrFromInt(RCC_APB2ENR)),
-        .TWO,.THREE => @as(*volatile u32, @ptrFromInt(RCC_APB1ENR)),
+        .TWO, .THREE => @as(*volatile u32, @ptrFromInt(RCC_APB1ENR)),
     };
 
     const usart_offset: u5 = switch(usart) {
@@ -86,9 +86,9 @@ pub fn setup(
         .ONE   => 9,
         .TWO   => 2,
         .THREE => 10
-    } + @as(u32, @intFromBool(dir == .INPUT));
+    } + @as(u32, @intFromEnum(dir));
 
-    const pin_setting: struct { cnf: u32, mode: u32 } = switch(dir) {
+    const pin_setting: gpio.PIN_SETTING = switch(dir) {
         .INPUT =>  .{ .cnf = 0b01, .mode = 0b00 },
         .OUTPUT => .{ .cnf = 0b10, .mode = 0b01 }
     };
@@ -103,8 +103,12 @@ pub fn setup(
     rcc_en_reg.* &= ~(@as(u32, 1) << usart_offset);
     rcc_en_reg.* |=  (@as(u32, 1) << usart_offset);
 
-    gpio.port_setup(port, 1);
-    gpio.pin_setup(port, pin, pin_setting.cnf, pin_setting.mode);
+    if (remap) {
+        afio.remap_usart(.ONE, dir, pin_setting);
+    } else {
+        gpio.port_setup(port, 1);
+        gpio.pin_setup(port, pin, pin_setting.cnf, pin_setting.mode);
+    }
 
     //                                   Mantissa       Frac
     get_brr_reg(usart).* &= ~(@as(u32, 0b1111_1111_1111_1111) << 0);
@@ -135,7 +139,6 @@ pub fn setup(
 pub fn get_sr_reg(usart: USART) *volatile u32 {
     return @as(*volatile u32, @ptrFromInt(USART_MAP[@intFromEnum(usart)] + SR_OFFSET));
 }
-
 
 pub fn get_data_reg(usart: USART) *volatile u32 {
     return @as(*volatile u32, @ptrFromInt(USART_MAP[@intFromEnum(usart)] + DATA_OFFSET));
