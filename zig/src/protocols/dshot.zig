@@ -21,13 +21,6 @@ const ENABLE_TELEMETRY: u16 = 0;
 const TELEMETRY_OFFSET: u32 = 44;
 const CRC_OFFSET: u32 = 48;
 
-pub const MOTORS = enum(u2) {
-    MOTOR1,
-    MOTOR2,
-    MOTOR3,
-    MOTOR4
-};
-
 pub const BUF_SIDE = enum(u2) {
     LEFT,
     RIGHT,
@@ -38,7 +31,7 @@ pub const BUF_SIDE = enum(u2) {
 const MOTOR_COUNT: u32 = 4;
 const BUF_SIZE: u32 = 64;
 const motors_addr: u32 = 0x2000_0030;
-var motors_buffer: []volatile u16 = create_slice(motors_addr, BUF_SIZE * 10);
+var motors_buffer: []volatile u16 = create_slice(motors_addr, BUF_SIZE);
 
 pub fn setup() void {
     // Setting up for DSHOT150 which runs at around 9KHz
@@ -88,22 +81,6 @@ pub fn pulse_frames(comptime CNT: u32, motor_vals: [CNT][MOTOR_COUNT]u16) void {
     while (!dma.transfer_complete(.FIVE)) {}
     timer.disable(.ONE);
     dma.clear_transfer_complete(.FIVE);
-
-    // Disable DMA
-    dma.get_ccr_reg(.ONE, .FIVE).* &= ~(@as(u32, 0b1) << 0);
-    dma.get_ccr_reg(.ONE, .FIVE).* |=  (@as(u32, 0b0) << 0);
-
-    // Reset back to ping-ponged looped transmission
-    dma.get_cndtr_reg(.ONE, .FIVE).* &= ~(@as(u32, 0xFFFF));
-    dma.get_cndtr_reg(.ONE, .FIVE).* |=  (@as(u32, BUF_SIZE));
-
-    // Enable circular mode
-    dma.get_ccr_reg(.ONE, .FIVE).* &= ~(@as(u32, 0b1) << 5);
-    dma.get_ccr_reg(.ONE, .FIVE).* |=  (@as(u32, 0b1) << 5);
-
-    // Enable DMA
-    dma.get_ccr_reg(.ONE, .FIVE).* &= ~(@as(u32, 0b1) << 0);
-    dma.get_ccr_reg(.ONE, .FIVE).* |=  (@as(u32, 0b1) << 0);
 }
 
 
@@ -111,8 +88,6 @@ pub fn pulse_frames(comptime CNT: u32, motor_vals: [CNT][MOTOR_COUNT]u16) void {
 // Will write to DMA buffer during a transmission which will corrupt
 // the active buffer
 pub fn set_motor_speeds(motor_speeds: [MOTOR_COUNT]u16, offset: bool) void {
-    timer.disable(.ONE);
-
     // Disable DMA
     dma.get_ccr_reg(.ONE, .FIVE).* &= ~(@as(u32, 0b1) << 0);
     dma.get_ccr_reg(.ONE, .FIVE).* |=  (@as(u32, 0b0) << 0);
@@ -120,6 +95,10 @@ pub fn set_motor_speeds(motor_speeds: [MOTOR_COUNT]u16, offset: bool) void {
     // Reset transmit counter to BUF_SIZE for clean start
     dma.get_cndtr_reg(.ONE, .FIVE).* &= ~(@as(u32, 0xFFFF));
     dma.get_cndtr_reg(.ONE, .FIVE).* |=  (@as(u32, BUF_SIZE));
+
+    // Enable circular mode
+    dma.get_ccr_reg(.ONE, .FIVE).* &= ~(@as(u32, 0b1) << 5);
+    dma.get_ccr_reg(.ONE, .FIVE).* |=  (@as(u32, 0b1) << 5);
 
     // Enable DMA
     dma.get_ccr_reg(.ONE, .FIVE).* &= ~(@as(u32, 0b1) << 0);
@@ -158,7 +137,6 @@ fn write_frame(buf: []volatile u16, motor_vals: [MOTOR_COUNT]u16) void {
                 
                 for (0..11) |speed_i| {
                     const bit_val: u16 = motor_val & (@as(u16, 0x1) << @intCast(10 - speed_i));
-                    // debug.print("Bit Val: {}\n", .{bit_val});
                     const buffer_i: u32 = (speed_i * 4) + motor_num;
                     buf[buffer_i] = switch (bit_val) {
                         0 => LOW_TIME,

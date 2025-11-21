@@ -40,28 +40,41 @@ export fn _start() callconv(.c) void {
  
     dshot.setup();
 
-    dshot_test();
+    time.loop(ibus_dshot_test, 10000, false);
 }
 
-fn rcc_setup() void {
-    // Overclock system to 64MHz while keeping peripherals at 8MHz
-    const flash_acr_reg: *volatile u32 = @ptrFromInt(FLASH_ACR);
-    flash_acr_reg.* &= ~((@as(u32, 0b1) << 4) | (@as(u32, 0b111) << 0));
-    flash_acr_reg.* |=  ((@as(u32, 0b1) << 4) | (@as(u32, 0b010) << 0));
+fn ibus_dshot_test() void {
+    ibus.decode() catch debug.print("Corrupted iBUS frame!\n", .{});
+    
+    const data = ibus.get_transmit_data();
 
-    const rcc_cfgr_reg: *volatile u32 = @ptrFromInt(RCC + CFGR_OFFSET);
-    rcc_cfgr_reg.* &= ~((@as(u32, 0b1111) << 18) | (@as(u32, 0b1) << 16) | (@as(u32, 0b111) << 11) | (@as(u32, 0b111) << 8) | (@as(u32, 0b1111) << 4) | (@as(u32, 0b11) << 0));
-    rcc_cfgr_reg.* |=  ((@as(u32, 0b0110) << 18) | (@as(u32, 0b1) << 16) | (@as(u32, 0b110) << 11) | (@as(u32, 0b110) << 8) | (@as(u32, 0b0000) << 4) | (@as(u32, 0b10) << 0));
+    // TRUE TEST
+    // dshot.set_motor_speeds(.{
+    //     throttle_to_speed(data.left_y),
+    //     throttle_to_speed(data.left_x),
+    //     throttle_to_speed(data.right_y),
+    //     throttle_to_speed(data.right_x)
+    // }, true);
 
-    const rcc_cr_reg: *volatile u32 = @ptrFromInt(RCC + CR_OFFSET);
-    rcc_cr_reg.* &= ~((@as(u32, 0b1) << 24) | (@as(u32, 0b1) << 16));
-    rcc_cr_reg.* |=  ((@as(u32, 0b1) << 24) | (@as(u32, 0b1) << 16));
+    // RAW THROTTLE VALUES
+    dshot.set_motor_speeds(.{
+        data.left_y,
+        data.left_x,
+        data.right_y,
+        data.right_x
+    }, false);
 }
 
+fn throttle_to_speed(throttle: u16) u16 {
+    return @intCast(@as(i16, -2000) + 2 * @as(i16, @intCast(throttle)));
+}
+
+// WARNING: This test is susceptible to prints which mess up the timing
+// gaps between each transmission mode
 fn dshot_test() void {
     const test_speeds = [_][4]u16{ 
-        .{ 0b11110000000, 0b11100000000, 0b11000000000, 0b10000000000 },
         .{ 0b10000000000, 0b11000000000, 0b11100000000, 0b11110000000 },
+        .{ 0b11110000000, 0b11100000000, 0b11000000000, 0b10000000000 },
         .{ 0b11111000000, 0b11111000000, 0b11111000000, 0b11111000000 },
         .{ 0b00000111111, 0b00000111111, 0b00000111111, 0b00000111111 },
     };
@@ -69,10 +82,13 @@ fn dshot_test() void {
     time.sleep(100);
 
     dshot.set_motor_speeds(test_speeds[2], false);
-    time.sleep(1500);
+    time.sleep(1000);
+
+    dshot.empty_buffer();
+    time.sleep(1000);
 
     dshot.set_motor_speeds(test_speeds[3], false);
-    time.sleep(2000);
+    time.sleep(1000);
 }
 
 fn ibus_test() void {
@@ -99,4 +115,20 @@ fn blinky() void {
         try gpio.set_pin(.C, 13, 1);
         time.sleep(wait_time);
     }
+}
+
+// TODO Make an "rcc" and "flash" tool
+fn rcc_setup() void {
+    // Overclock system to 64MHz while keeping peripherals at 8MHz
+    const flash_acr_reg: *volatile u32 = @ptrFromInt(FLASH_ACR);
+    flash_acr_reg.* &= ~((@as(u32, 0b1) << 4) | (@as(u32, 0b111) << 0));
+    flash_acr_reg.* |=  ((@as(u32, 0b1) << 4) | (@as(u32, 0b010) << 0));
+
+    const rcc_cfgr_reg: *volatile u32 = @ptrFromInt(RCC + CFGR_OFFSET);
+    rcc_cfgr_reg.* &= ~((@as(u32, 0b1111) << 18) | (@as(u32, 0b1) << 16) | (@as(u32, 0b111) << 11) | (@as(u32, 0b111) << 8) | (@as(u32, 0b1111) << 4) | (@as(u32, 0b11) << 0));
+    rcc_cfgr_reg.* |=  ((@as(u32, 0b0110) << 18) | (@as(u32, 0b1) << 16) | (@as(u32, 0b110) << 11) | (@as(u32, 0b110) << 8) | (@as(u32, 0b0000) << 4) | (@as(u32, 0b10) << 0));
+
+    const rcc_cr_reg: *volatile u32 = @ptrFromInt(RCC + CR_OFFSET);
+    rcc_cr_reg.* &= ~((@as(u32, 0b1) << 24) | (@as(u32, 0b1) << 16));
+    rcc_cr_reg.* |=  ((@as(u32, 0b1) << 24) | (@as(u32, 0b1) << 16));
 }
