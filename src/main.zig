@@ -28,19 +28,32 @@ export fn _start() callconv(.c) void {
 
     // Terminal printing
     debug.setup();
-    debug.print("\n\n\n\n\n", .{}); // Break terminal from prior program run
+    debug.reset_terminal();
 
     debug.print("Setup onboard LED...\n", .{});
     gpio.port_setup(.C, 1);
     gpio.pin_setup(.C, 13, 0b00, 0b11);
-    gpio.set_pin(.C, 13, 1);
+    gpio.set_pin(.C, 13, 0);
+
+    gpio.port_setup(.A, 1);
+    gpio.pin_setup(.A, 7, 0b00, 0b11);
+    gpio.set_pin(.A, 7, 1);
 
     debug.print("Setup DMA for iBUS Receiver...\n", .{});
     ibus.setup();
  
     dshot.setup();
+    
+    dshot.arm();
 
-    time.loop(ibus_dshot_test, 10000, false);
+    // var data = ibus.get_transmit_data();
+    // debug.print("{f}\n", .{data});
+    // while (data.swa == false) : (ibus.decode() catch unreachable) {
+    //     data = ibus.get_transmit_data();
+    //     debug.print("{f}\r", .{data});
+    //     time.sleep(10000);
+    // }
+
 }
 
 fn ibus_dshot_test() void {
@@ -49,24 +62,24 @@ fn ibus_dshot_test() void {
     const data = ibus.get_transmit_data();
 
     // TRUE TEST
-    // dshot.set_motor_speeds(.{
-    //     throttle_to_speed(data.left_y),
-    //     throttle_to_speed(data.left_x),
-    //     throttle_to_speed(data.right_y),
-    //     throttle_to_speed(data.right_x)
-    // }, true);
+    dshot.set_motor_speeds(.{
+        throttle_to_speed(data.left_y),
+        throttle_to_speed(data.left_x),
+        throttle_to_speed(data.right_y),
+        throttle_to_speed(data.right_x)
+    });
 
     // RAW THROTTLE VALUES
-    dshot.set_motor_speeds(.{
-        data.left_y,
-        data.left_x,
-        data.right_y,
-        data.right_x
-    }, false);
+    // dshot.set_motor_speeds(.{
+    //     data.left_y,
+    //     data.left_x,
+    //     data.right_y,
+    //     data.right_x
+    // }, false);
 }
 
 fn throttle_to_speed(throttle: u16) u16 {
-    return @intCast(@as(i16, -2000) + 2 * @as(i16, @intCast(throttle)));
+    return @as(u16, @intCast(@as(i16, -2000) + 2 * @as(i16, @intCast(throttle)) + 47));
 }
 
 // WARNING: This test is susceptible to prints which mess up the timing
@@ -79,7 +92,6 @@ fn dshot_test() void {
         .{ 0b00000111111, 0b00000111111, 0b00000111111, 0b00000111111 },
     };
     dshot.pulse_frames(4, test_speeds);
-    time.sleep(100);
 
     dshot.set_motor_speeds(test_speeds[2], false);
     time.sleep(1000);
@@ -125,8 +137,20 @@ fn rcc_setup() void {
     flash_acr_reg.* |=  ((@as(u32, 0b1) << 4) | (@as(u32, 0b010) << 0));
 
     const rcc_cfgr_reg: *volatile u32 = @ptrFromInt(RCC + CFGR_OFFSET);
-    rcc_cfgr_reg.* &= ~((@as(u32, 0b1111) << 18) | (@as(u32, 0b1) << 16) | (@as(u32, 0b111) << 11) | (@as(u32, 0b111) << 8) | (@as(u32, 0b1111) << 4) | (@as(u32, 0b11) << 0));
-    rcc_cfgr_reg.* |=  ((@as(u32, 0b0110) << 18) | (@as(u32, 0b1) << 16) | (@as(u32, 0b110) << 11) | (@as(u32, 0b110) << 8) | (@as(u32, 0b0000) << 4) | (@as(u32, 0b10) << 0));
+    rcc_cfgr_reg.* &= ~((@as(u32, 0b1111) << 18) |
+                        (@as(u32, 0b1)    << 17) |
+                        (@as(u32, 0b1)    << 16) |
+                        (@as(u32, 0b111)  << 11) |
+                        (@as(u32, 0b111)  << 8) |
+                        (@as(u32, 0b1111) << 4) |
+                        (@as(u32, 0b11)   << 0));
+    rcc_cfgr_reg.* |=  ((@as(u32, 0b0100) << 18) | // PLL Multiplier
+                        (@as(u32, 0b1)    << 17) | // HSE -> PLL
+                        (@as(u32, 0b1)    << 16) | // PLL Source (HSE)
+                        (@as(u32, 0b000)  << 11) | // APB2 Prescaler
+                        (@as(u32, 0b110)  << 8) |  // APB1 Prescaler
+                        (@as(u32, 0b0000) << 4) |  // AHB Prescaler
+                        (@as(u32, 0b10)   << 0));  // SYCLK
 
     const rcc_cr_reg: *volatile u32 = @ptrFromInt(RCC + CR_OFFSET);
     rcc_cr_reg.* &= ~((@as(u32, 0b1) << 24) | (@as(u32, 0b1) << 16));

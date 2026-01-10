@@ -12,9 +12,13 @@ const debug = @import("../tools/debug.zig");
 // bit_time that's in microseconds. We have no clock that runs that 
 // fast though so we'll have to use an approximation from our incoming 8MHz clock:
 // 6.67/0.125 = 53.3 ~= 52 + (1.333)
-const BIT_TIME: u16 = 104;
-const HIGH_TIME: u16 = 80;
-const LOW_TIME: u16 = 40;
+// const BIT_TIME: u16 = 106;
+// const HIGH_TIME: u16 = 80;
+// const LOW_TIME: u16 = 40;
+const BIT_TIME: u16 = 160;
+const HIGH_TIME: u16 = 120;
+const LOW_TIME: u16 = 60;
+
 
 const ENABLE_TELEMETRY: u16 = 0;
 
@@ -29,7 +33,9 @@ pub const BUF_SIDE = enum(u2) {
 };
 
 const MOTOR_COUNT: u32 = 4;
-const BUF_SIZE: u32 = 64;
+const FRAME_SIZE: u32 = 64;
+const PADDING_SIZE: u32 = 0;
+const BUF_SIZE: u32 = FRAME_SIZE + PADDING_SIZE; // 64 frame bits + 10 padding
 const motors_addr: u32 = 0x2000_0030;
 var motors_buffer: []volatile u16 = create_slice(motors_addr, BUF_SIZE);
 
@@ -44,38 +50,110 @@ pub fn setup() void {
     dma.clear_transfer_complete(.FIVE);
 }
 
+// Hold zeros for an ideal minimum of 300 milliseconds
+// (might also be 300 microseconds, not sure)
+pub fn arm() void {
+    timer.disable(.ONE);
+    time.sleep(10000000);
+
+    gpio.set_pin(.A, 7, 1);
+    set_motor_speeds(.{ 0, 0, 0, 0 });
+    display_motors_buffer("Decent Throttle", motors_buffer);
+    time.sleep(5000000);
+
+    gpio.set_pin(.A, 7, 0);
+    set_motor_speeds(.{ 1500, 1500, 1500, 1500 });
+    display_motors_buffer("Decent Throttle", motors_buffer);
+    time.sleep(5000000);
+
+    gpio.set_pin(.A, 7, 1);
+    set_motor_speeds(.{ 0, 0, 0, 0 });
+    display_motors_buffer("Decent Throttle", motors_buffer);
+    time.sleep(5000000);
+
+    // set_motor_speeds(.{ 0, 0, 0, 0 });
+    // display_motors_buffer("Init Zeros", motors_buffer);
+    // time.sleep(5000000);
+
+    // gpio.set_pin(.A, 7, 0);
+    // set_motor_speeds(.{ 100, 100, 100, 100 });
+    // display_motors_buffer("Init Throttle", motors_buffer);
+    // time.sleep(5000000);
+
+    // gpio.set_pin(.A, 7, 1);
+    // set_motor_speeds(.{ 200, 200, 200, 200 });
+    // display_motors_buffer("Decent Throttle", motors_buffer);
+    // time.sleep(5000000);
+
+    // gpio.set_pin(.A, 7, 0);
+    // set_motor_speeds(.{ 1500, 1500, 1500, 1500 });
+    // display_motors_buffer("Decent Throttle", motors_buffer);
+    // time.sleep(20000000);
+
+    // gpio.set_pin(.A, 7, 0);
+    // set_motor_speeds(.{ 200, 200, 200, 200 });
+    // display_motors_buffer("Decent Throttle", motors_buffer);
+    // time.sleep(20000000);
+
+    // set_motor_speeds(.{ 0, 0, 0, 0 });
+    // display_motors_buffer("Init Zeros", motors_buffer);
+    // time.sleep(5000000);
+
+    // gpio.set_pin(.A, 7, 0);
+    // set_motor_speeds(.{ 0, 0, 0, 0 });
+    // display_motors_buffer("Back to Zeros", motors_buffer);
+    // time.sleep(5000000);
+
+    // gpio.set_pin(.A, 7, 0);
+    // set_motor_speeds(.{ 0, 0, 0, 0 });
+    // display_motors_buffer("Back to Zeros Again", motors_buffer);
+    // time.sleep(5000000);
+
+    // gpio.set_pin(.A, 7, 1);
+    // set_motor_speeds(.{ 500, 500, 500, 500 });
+    // display_motors_buffer("Actual Running Throttle", motors_buffer);
+    // time.sleep(5000000);
+
+    // pulse_frames(1, .{.{ 48, 48, 48, 48 }});
+    // time.sleep(40000000);
+    // gpio.set_pin(.A, 7, 1);
+    // empty_buffer();
+    // timer.disable(.ONE);
+}
+
 // Pulsing is a blocking operation since a certain number of frames
 // need to be precisely sent which requires full availability of cpu
 // time for poll-based checking
 // Only use in operations other completion of other events aren't necessary
 pub fn pulse_frames(comptime CNT: u32, motor_vals: [CNT][MOTOR_COUNT]u16) void {
-    timer.disable(.ONE);
-
     // Disable DMA
     dma.get_ccr_reg(.ONE, .FIVE).* &= ~(@as(u32, 0b1) << 0);
     dma.get_ccr_reg(.ONE, .FIVE).* |=  (@as(u32, 0b0) << 0);
 
     // Load DMA with exact number of frames desired
     dma.get_cndtr_reg(.ONE, .FIVE).* &= ~(@as(u32, 0xFFFF));
-    dma.get_cndtr_reg(.ONE, .FIVE).* |=  (@as(u32, BUF_SIZE*(CNT+1)));
+    dma.get_cndtr_reg(.ONE, .FIVE).* |=  (@as(u32, BUF_SIZE*CNT));
 
     // Disable circular mode
     dma.get_ccr_reg(.ONE, .FIVE).* &= ~(@as(u32, 0b1) << 5);
     dma.get_ccr_reg(.ONE, .FIVE).* |=  (@as(u32, 0b0) << 5);
 
-    // Enable DMA
-    dma.get_ccr_reg(.ONE, .FIVE).* &= ~(@as(u32, 0b1) << 0);
-    dma.get_ccr_reg(.ONE, .FIVE).* |=  (@as(u32, 0b1) << 0);
+    timer.disable(.ONE);
 
     // Buffered slice to match count of pulse_frames
     // Pulsed transmission needs extra frame of 0s
-    var scaled_buffer: []volatile u16 = create_slice(motors_addr, BUF_SIZE*(CNT + 1));
+    var scaled_buffer: []volatile u16 = create_slice(motors_addr, BUF_SIZE*CNT);
     for (0..CNT) |i| {
         const start_bound: u32 = (i*BUF_SIZE);
         const end_bound: u32 = ((i+1)*BUF_SIZE);
         write_frame(scaled_buffer[start_bound..end_bound], motor_vals[i]);
     }
-    @memset(scaled_buffer[(CNT*BUF_SIZE)..((CNT+1)*BUF_SIZE)], 0);
+    
+    dma.clear_transfer_complete(.FIVE);
+
+    // Enable DMA
+    dma.get_ccr_reg(.ONE, .FIVE).* &= ~(@as(u32, 0b1) << 0);
+    dma.get_ccr_reg(.ONE, .FIVE).* |=  (@as(u32, 0b1) << 0);
 
     timer.enable(.ONE);
     while (!dma.transfer_complete(.FIVE)) {}
@@ -87,7 +165,9 @@ pub fn pulse_frames(comptime CNT: u32, motor_vals: [CNT][MOTOR_COUNT]u16) void {
 // Takes a speed value between 1-2000
 // Will write to DMA buffer during a transmission which will corrupt
 // the active buffer
-pub fn set_motor_speeds(motor_speeds: [MOTOR_COUNT]u16, offset: bool) void {
+pub fn set_motor_speeds(motor_speeds: [MOTOR_COUNT]u16) void {
+    timer.disable(.ONE);
+
     // Disable DMA
     dma.get_ccr_reg(.ONE, .FIVE).* &= ~(@as(u32, 0b1) << 0);
     dma.get_ccr_reg(.ONE, .FIVE).* |=  (@as(u32, 0b0) << 0);
@@ -100,20 +180,11 @@ pub fn set_motor_speeds(motor_speeds: [MOTOR_COUNT]u16, offset: bool) void {
     dma.get_ccr_reg(.ONE, .FIVE).* &= ~(@as(u32, 0b1) << 5);
     dma.get_ccr_reg(.ONE, .FIVE).* |=  (@as(u32, 0b1) << 5);
 
+    write_frame(motors_buffer, motor_speeds);
+
     // Enable DMA
     dma.get_ccr_reg(.ONE, .FIVE).* &= ~(@as(u32, 0b1) << 0);
     dma.get_ccr_reg(.ONE, .FIVE).* |=  (@as(u32, 0b1) << 0);
-
-    if (offset) {
-        write_frame(motors_buffer, .{
-            motor_speeds[0] + 47,
-            motor_speeds[1] + 47,
-            motor_speeds[2] + 47,
-            motor_speeds[3] + 47
-        });
-    } else {
-        write_frame(motors_buffer, motor_speeds);
-    }
 
     timer.enable(.ONE);
 }
@@ -127,36 +198,36 @@ pub fn empty_buffer() void {
 
 // Updates DMA buffer to send DSHOT commands
 fn write_frame(buf: []volatile u16, motor_vals: [MOTOR_COUNT]u16) void {
+    var temp_buf = [_]u16{0} ** BUF_SIZE;
+
     for (motor_vals, 0..) |motor_val, motor_num| {
         switch (motor_val) {
-            0 =>        return, // Disarm
-            1...47 =>    return, // Special commands
-            48...2047 => {
+            0...2047 => {
                 // Loop through 11 bit motor_speed and 4 bit crc to convert
                 // each set bit into a BIT_TIME in DMA buffer
                 
                 for (0..11) |speed_i| {
                     const bit_val: u16 = motor_val & (@as(u16, 0x1) << @intCast(10 - speed_i));
                     const buffer_i: u32 = (speed_i * 4) + motor_num;
-                    buf[buffer_i] = switch (bit_val) {
+                    temp_buf[buffer_i] = switch (bit_val) {
                         0 => LOW_TIME,
                         else => HIGH_TIME,
                     };
                 }
 
-                buf[TELEMETRY_OFFSET + motor_num] = switch(ENABLE_TELEMETRY) {
+                temp_buf[TELEMETRY_OFFSET + motor_num] = switch(ENABLE_TELEMETRY) {
                     0 => LOW_TIME,
                     1 => HIGH_TIME,
                     else => unreachable
                 };
 
                 // Reconstruct crc sum separetly rather than indexing buffer
-                const sum: u16 = (motor_val << ENABLE_TELEMETRY) | ENABLE_TELEMETRY;
+                const sum: u16 = (motor_val << 1) | ENABLE_TELEMETRY;
                 const crc: u16 = (sum ^ (sum >> 4) ^ (sum >> 8)) & 0xF;
                 for (0..4) |crc_i| {
-                    const bit_val: u16 = crc & (@as(u16, 0x1) << @intCast(crc_i));
+                    const bit_val: u16 = crc & (@as(u16, 0x1) << @intCast(3 - crc_i));
                     const buffer_i: u32 = CRC_OFFSET + (crc_i * 4) + motor_num;
-                    buf[buffer_i] = switch (bit_val) {
+                    temp_buf[buffer_i] = switch (bit_val) {
                         0 => LOW_TIME,
                         else => HIGH_TIME,
                     };
@@ -165,10 +236,11 @@ fn write_frame(buf: []volatile u16, motor_vals: [MOTOR_COUNT]u16) void {
             else => unreachable
         }
     }
+    @memcpy(buf, &temp_buf);
 }
 
 
-pub fn display_motors_buffer(title: []const u8, buf: []const volatile u16) void {
+fn display_motors_buffer(title: []const u8, buf: []const volatile u16) void {
     var motor1: u16 = 0;
     var motor2: u16 = 0;
     var motor3: u16 = 0;
@@ -184,7 +256,8 @@ pub fn display_motors_buffer(title: []const u8, buf: []const volatile u16) void 
     var motor3_crc: u16 = 0;
     var motor4_crc: u16 = 0;
 
-    for (buf, 0..) |bit_time, i| {
+    // Only loop through frame bits, ignore padding
+    for (buf[0..FRAME_SIZE], 0..) |bit_time, i| {
         if (bit_time == LOW_TIME) continue;
 
         const bit_time_sized: u16 = @intCast(1);

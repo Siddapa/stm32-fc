@@ -38,10 +38,15 @@ const CHANNEL_DATA = struct {
     }
 };
 
-const frame_buffer_addr: u32 = 0x2000_0000; // 0x20000_0000 - 0x20000_0020
-const transmit_data_addr: u32 = 0x2000_0030;
+
+const frame_buffer_addr: u32 = 0x2000_0000; // 0x20000_0000 - 0x20000_0019
+const transmit_data_addr: u32 = 0x2000_0020;
 const frame_buffer: []volatile u8 = @as([*]volatile u8, @ptrFromInt(frame_buffer_addr))[0..32];
 const transmit_data: *volatile CHANNEL_DATA = @ptrFromInt(transmit_data_addr);
+
+comptime {
+    std.debug.assert(@sizeOf(CHANNEL_DATA) == 10);
+}
 
 
 pub fn setup() void {

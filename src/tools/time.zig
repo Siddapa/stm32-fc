@@ -2,13 +2,12 @@ const debug = @import("debug.zig");
 const Err = @import("error.zig").Err;
 
 
-var tick_counter: u32 = 0;
+var tick_counter: *volatile u32 = @ptrFromInt(0x2000_0500);
 
 
 pub fn sleep(time: u32) void {
-    const count = @as(*volatile u32, @ptrCast(&tick_counter));
-    while (count.* < time) { count.* += 1; }
-    count.* = 0;
+    while (tick_counter.* < time) { tick_counter.* += 1; }
+    tick_counter.* = 0;
 }
 
 pub fn loop(func: fn() void, idle_time: u32, log_index: bool) void {

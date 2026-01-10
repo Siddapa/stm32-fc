@@ -98,6 +98,22 @@ pub fn setup(comptime timer: TIMER, comptime arr: u16) void {
 }
 
 pub fn enable(timer: TIMER) void {
+    // DMA Requests
+    get_dier_reg(timer).* &= ~((@as(u32, 0b1) << 8));
+    get_dier_reg(timer).* |=  ((@as(u32, 0b1) << 8));
+
+    // Counter
+    get_cr1_reg(timer).* &= ~((@as(u32, 0b1) << 0));
+    get_cr1_reg(timer).* |=  ((@as(u32, 0b1) << 0));
+
+    // // Counter Value
+    // get_cnt_reg(timer).* &= ~(@as(u32, 0xFFFF));
+    // get_cnt_reg(timer).* |=  (@as(u32, 0x0000));
+
+    // Main output
+    get_bdtr_reg(timer).* &= ~(@as(u32, 0b1) << 15);
+    get_bdtr_reg(timer).* |=  (@as(u32, 0b1) << 15);
+
     // Channel outputs
     get_ccer_reg(timer).* &= ~((@as(u32, 0b1) << 12) | // CC4 Enable
                                (@as(u32, 0b1) << 8)  | // CC3 Enable
@@ -107,22 +123,6 @@ pub fn enable(timer: TIMER) void {
                                (@as(u32, 0b1) << 8)  |
                                (@as(u32, 0b1) << 4)  |
                                (@as(u32, 0b1) << 0)); 
-
-    // Main output
-    get_bdtr_reg(timer).* &= ~(@as(u32, 0b1) << 15);
-    get_bdtr_reg(timer).* |=  (@as(u32, 0b1) << 15);
-
-    // DMA Requests
-    get_dier_reg(timer).* &= ~((@as(u32, 0b1) << 8));
-    get_dier_reg(timer).* |=  ((@as(u32, 0b1) << 8));
-
-    // Counter
-    get_cr1_reg(timer).* &= ~((@as(u32, 0b1) << 0));
-    get_cr1_reg(timer).* |=  ((@as(u32, 0b1) << 0));
-
-    // Counter Value
-    get_cnt_reg(timer).* &= ~(@as(u32, 0xFFFF));
-    get_cnt_reg(timer).* |=  (@as(u32, 0x0000));
 }
 
 pub fn disable(timer: TIMER) void {
