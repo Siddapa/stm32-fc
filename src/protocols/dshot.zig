@@ -43,10 +43,31 @@ pub fn setup() void {
     // Setting up for DSHOT150 which runs at around 9KHz
     // Counting up to 667 to match bit time in microseconds
 
-    timer.setup(.ONE, BIT_TIME);
+    // timer.setup(.ONE, BIT_TIME);
+    timer.setup(.{
+        .timer = .ONE,
+        .arr = BIT_TIME
+    });
     timer.disable(.ONE);
 
-    dma.setup(.ONE, .FIVE, BUF_SIZE, @intFromPtr(timer.get_dmar_reg(.ONE)), motors_addr, .MEDIUM, .TWO, .TWO, true, true, .FROM_MEMORY, false, false, true);
+    dma.setup(.{
+        .dma = .ONE,
+        .channel = .FIVE,
+        .transfer_count = BUF_SIZE,
+        .peripheral_addr = @intFromPtr(timer.get_dmar_reg(.ONE)),
+        .memory_addr = motors_addr,
+        .priority = .MEDIUM,
+        .memory_size = .TWO,
+        .peripheral_size = .TWO,
+        .memory_increment = true,
+        .circular_mode = true,
+        .transfer_direction = .FROM_MEMORY,
+        .error_interrupt = false,
+        .transfer_complete_interrupt = false,
+        .enable = true
+    });
+
+    // dma.setup(.ONE, .FIVE, BUF_SIZE, @intFromPtr(timer.get_dmar_reg(.ONE)), motors_addr, .MEDIUM, .TWO, .TWO, true, true, .FROM_MEMORY, false, false, true);
     dma.clear_transfer_complete(.FIVE);
 }
 

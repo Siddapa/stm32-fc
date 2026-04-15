@@ -26,6 +26,12 @@ const DCR_OFFSET:       u32 = 0x48;
 const DMAR_OFFSET:      u32 = 0x4C;
 
 
+const CONFIG = struct {
+    timer: TIMER,
+    arr: u16
+};
+
+
 const TIMER = enum(u1) {
     ONE = 0,
     EIGHT = 1
@@ -37,8 +43,8 @@ const TIMER_MAP = [2]u32{
 };
 
 
-pub fn setup(comptime timer: TIMER, comptime arr: u16) void {
-    const rcc_en = switch (timer) {
+pub fn setup(comptime config: CONFIG) void {
+    const rcc_en = switch (config.timer) {
         .ONE => 11,
         .EIGHT => 13
     };
@@ -46,7 +52,7 @@ pub fn setup(comptime timer: TIMER, comptime arr: u16) void {
     RCC_APB2ENR.* &= ~(@as(u32, 0b1) << rcc_en);
     RCC_APB2ENR.* |=  (@as(u32, 0b1) << rcc_en);
 
-    switch (timer) {
+    switch (config.timer) {
         .ONE => {
             gpio.port_setup(.A, 1);
             gpio.pin_setup(.A, 8, 0b10, 0b01);
@@ -57,26 +63,26 @@ pub fn setup(comptime timer: TIMER, comptime arr: u16) void {
         else => unreachable
     }
 
-    get_ccmr1_reg(timer).* &= ~((@as(u32, 0b111) << 12) | // CC2 PWM 1 Mode
+    get_ccmr1_reg(config.timer).* &= ~((@as(u32, 0b111) << 12) | // CC2 PWM 1 Mode
                                 (@as(u32, 0b1)   << 11) | // CC2 Preload
                                 (@as(u32, 0b11)  << 8)  | // CC2 Output
                                 (@as(u32, 0b111) << 4)  | // CC1 PWM 1 Mode
                                 (@as(u32, 0b1)   << 3)  | // CC1 Preload
                                 (@as(u32, 0b11)  << 0));  // CC1 Output
-    get_ccmr1_reg(timer).* |=  ((@as(u32, 0b110) << 12) |
+    get_ccmr1_reg(config.timer).* |=  ((@as(u32, 0b110) << 12) |
                                 (@as(u32, 0b1)   << 11) |
                                 (@as(u32, 0b00)  << 8)  |
                                 (@as(u32, 0b110) << 4)  |
                                 (@as(u32, 0b1)   << 3)  |
                                 (@as(u32, 0b00)  << 0));
 
-    get_ccmr2_reg(timer).* &= ~((@as(u32, 0b111) << 12) | // CC4 PWM 1 Mode
+    get_ccmr2_reg(config.timer).* &= ~((@as(u32, 0b111) << 12) | // CC4 PWM 1 Mode
                                 (@as(u32, 0b1)   << 11) | // CC4 Preload
                                 (@as(u32, 0b11)  << 8)  | // CC4 Output
                                 (@as(u32, 0b111) << 4)  | // CC3 PWM 1 Mode
                                 (@as(u32, 0b1)   << 3)  | // CC3 Preload
                                 (@as(u32, 0b11)  << 0));  // CC3 Output
-    get_ccmr2_reg(timer).* |=  ((@as(u32, 0b110) << 12) |
+    get_ccmr2_reg(config.timer).* |=  ((@as(u32, 0b110) << 12) |
                                 (@as(u32, 0b1)   << 11) |
                                 (@as(u32, 0b00)  << 8)  |
                                 (@as(u32, 0b110) << 4)  |
@@ -84,16 +90,16 @@ pub fn setup(comptime timer: TIMER, comptime arr: u16) void {
                                 (@as(u32, 0b00)  << 0));    
 
     //                       Auto-Reload
-    get_arr_reg(timer).* &= ~@as(u32, 0xFFFF);
-    get_arr_reg(timer).* |=  @as(u32, arr);
+    get_arr_reg(config.timer).* &= ~@as(u32, 0xFFFF);
+    get_arr_reg(config.timer).* |=  @as(u32, config.arr);
 
     //                       Repitition Count
-    get_rcr_reg(timer).* &= ~@as(u32, 0xFF);
-    get_rcr_reg(timer).* |=  @as(u32, 0);
+    get_rcr_reg(config.timer).* &= ~@as(u32, 0xFF);
+    get_rcr_reg(config.timer).* |=  @as(u32, 0);
 
-    get_dcr_reg(timer).* &= ~((@as(u32, 0b11111) << 8) | // # of DMA Transfers
+    get_dcr_reg(config.timer).* &= ~((@as(u32, 0b11111) << 8) | // # of DMA Transfers
                               (@as(u32, 0b11111) << 0)); // DMA Base Address
-    get_dcr_reg(timer).* |=  ((@as(u32, 0b00011) << 8) |
+    get_dcr_reg(config.timer).* |=  ((@as(u32, 0b00011) << 8) |
                               (@as(u32, 0b01101) << 0));
 }
 

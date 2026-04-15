@@ -104,9 +104,9 @@ pub fn setup(
     get_cr2_reg(spi).* |=  ((@as(u32, 0b1) << 1) | // TX DMA Enable
                             (@as(u32, 0b1) << 0)); // RX DMA Enable
     // Transmit DMA
-    dma.setup(.ONE, .TWO, 12 * 8 + 8, );
+    // dma.setup(.ONE, .TWO, 12 * 8 + 8, );
     // Recieve DMA
-    dma.setup(.ONE, .THREE, )
+    // dma.setup(.ONE, .THREE, )
 }
 
 

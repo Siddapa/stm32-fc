@@ -9,21 +9,27 @@ const AFIO: u32 = PERIPHERAL + 0x0001_0000;
 
 const MAPR_OFFSET: u32 = 0x04;
 
+const CONFIG = struct {
+    usart: USART,
+    dir: DIRECTION,
+    pin_setting: gpio.PIN_SETTING
+};
 
-pub fn remap_usart(comptime usart: USART, comptime dir: DIRECTION, comptime pin_setting: gpio.PIN_SETTING) void {
+
+pub fn remap_usart(comptime config: CONFIG) void {
     const apb2_reg: *volatile u32 = @ptrFromInt(RCC + 0x18);
 
     apb2_reg.* &= ~(@as(u32, 0b1) << 0);
     apb2_reg.* |=  (@as(u32, 0b1) << 0);
 
-    get_mapr_reg().* &= ~(@as(u32, 0b1) << (@intFromEnum(usart) + 2));
-    get_mapr_reg().* |=  (@as(u32, 0b1) << (@intFromEnum(usart) + 2));
+    get_mapr_reg().* &= ~(@as(u32, 0b1) << (@intFromEnum(config.usart) + 2));
+    get_mapr_reg().* |=  (@as(u32, 0b1) << (@intFromEnum(config.usart) + 2));
 
-    switch (usart) {
+    switch (config.usart) {
         .ONE => {
-            const pin: u32 = 6 + @as(u32, @intFromEnum(dir));
+            const pin: u32 = 6 + @as(u32, @intFromEnum(config.dir));
             gpio.port_setup(.B, 1);
-            gpio.pin_setup(.B, pin, pin_setting.cnf, pin_setting.mode);
+            gpio.pin_setup(.B, pin, config.pin_setting.cnf, config.pin_setting.mode);
         },
         else => unreachable
     }    

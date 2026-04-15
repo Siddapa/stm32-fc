@@ -13,27 +13,48 @@ const CPAR_OFFSET: u32 =  0x010;
 const CMAR_OFFSET: u32 =  0x014;
 
 
+pub const CONFIG = struct {
+    dma: DMA,
+    channel: CHANNEL,
+    transfer_count: u16,
+    peripheral_addr: u32,
+    memory_addr: u32,
+    priority: enum(u2) {
+        LOW =       0b00,
+        MEDIUM =    0b01,
+        HIGH =      0b10,
+        VERY_HIGH = 0b11
+    },
+    memory_size: enum(u2) { // In bytes
+        ONE =  0b00,
+        TWO =  0b01,
+        FOUR = 0b10,
+    },
+    peripheral_size: enum(u2) { // In bytes
+        ONE =  0b00,
+        TWO =  0b01,
+        FOUR = 0b10,
+    },
+    memory_increment: bool,
+    circular_mode: bool,
+    transfer_direction: enum(u1) {
+        FROM_PERIPHERAL = 0,
+        FROM_MEMORY     = 1
+    },
+    error_interrupt: bool,
+    transfer_complete_interrupt: bool,
+    enable: bool
+};
+
+const DMA_MAP = [2]u32 {
+    PERIPHERAL + 0x0002_0000, // Controller 1
+    PERIPHERAL + 0x0002_0400  //    ""      2
+};
+
+
 const DMA = enum(u1) {
     ONE = 0,
     TWO = 1
-};
-
-const PRIORITY = enum(u2) {
-    LOW =       0b00,
-    MEDIUM =    0b01,
-    HIGH =      0b10,
-    VERY_HIGH = 0b11
-};
-
-const DATA_SIZE = enum(u2) { // In bytes
-    ONE =  0b00,
-    TWO =  0b01,
-    FOUR = 0b10,
-};
-
-const TRANSFER_DIRECTION = enum(u1) {
-    FROM_PERIPHERAL = 0,
-    FROM_MEMORY     = 1
 };
 
 const CHANNEL = enum(u3) {
@@ -46,45 +67,26 @@ const CHANNEL = enum(u3) {
     SEVEN = 7
 };
 
-const DMA_MAP = [2]u32 {
-    PERIPHERAL + 0x0002_0000, // Controller 1
-    PERIPHERAL + 0x0002_0400  //            2
-};
 
 
-pub fn setup(
-    comptime dma: DMA,
-    comptime channel: CHANNEL,
-    comptime transfer_count: u16,
-    comptime peripheral_addr: u32,
-    comptime memory_addr: u32,
-    comptime priority: PRIORITY,
-    comptime memory_size: DATA_SIZE,
-    comptime peripheral_size: DATA_SIZE,
-    comptime memory_increment: bool,
-    comptime circular_mode: bool,
-    comptime transfer_direction: TRANSFER_DIRECTION,
-    comptime error_interrupt: bool,
-    comptime transfer_complete_interrupt: bool,
-    comptime enable: bool
-) void {
+pub fn setup(comptime config: CONFIG) void {
     const rcc_ahbenr_reg: *volatile u32 = @ptrFromInt(RCC_AHBENR);
-    const cndtr_reg: *volatile u32 = get_cndtr_reg(dma, channel);
-    const cpar_reg: *volatile u32 = get_cpar_reg(dma, channel);
-    const cmar_reg: *volatile u32 = get_cmar_reg(dma, channel);
-    const ccr_reg: *volatile u32 = get_ccr_reg(dma, channel);
+    const cndtr_reg: *volatile u32 = get_cndtr_reg(config.dma, config.channel);
+    const cpar_reg: *volatile u32 = get_cpar_reg(config.dma, config.channel);
+    const cmar_reg: *volatile u32 = get_cmar_reg(config.dma, config.channel);
+    const ccr_reg: *volatile u32 = get_ccr_reg(config.dma, config.channel);
 
-    rcc_ahbenr_reg.* &= ~(@as(u32, 0b1) << @intFromEnum(dma));
-    rcc_ahbenr_reg.* |=  (@as(u32, @intFromBool(enable)) << @intFromEnum(dma));
+    rcc_ahbenr_reg.* &= ~(@as(u32, 0b1) << @intFromEnum(config.dma));
+    rcc_ahbenr_reg.* |=  (@as(u32, @intFromBool(config.enable)) << @intFromEnum(config.dma));
 
     cndtr_reg.* &= ~(@as(u32, 0xFFFF));
-    cndtr_reg.* |=  (@as(u32, transfer_count));
+    cndtr_reg.* |=  (@as(u32, config.transfer_count));
 
     cpar_reg.* &= ~(@as(u32, 0xFFFFFFFF));
-    cpar_reg.* |=  (@as(u32, peripheral_addr));
+    cpar_reg.* |=  (@as(u32, config.peripheral_addr));
 
     cmar_reg.* &= ~(@as(u32, 0xFFFFFFFF));
-    cmar_reg.* |=  (@as(u32, memory_addr));
+    cmar_reg.* |=  (@as(u32, config.memory_addr));
 
     ccr_reg.* &= ~((@as(u32, 0b11) << 12) |
                    (@as(u32, 0b11) << 10) |
@@ -95,15 +97,15 @@ pub fn setup(
                    (@as(u32, 0b1)   << 3) |
                    (@as(u32, 0b1)   << 1) |
                    (@as(u32, 0b1)   << 0));
-    ccr_reg.* |=  ((@as(u32, @intFromEnum(priority))                   << 12) |
-                   (@as(u32, @intFromEnum(memory_size))                << 10) |
-                   (@as(u32, @intFromEnum(peripheral_size))             << 8) |
-                   (@as(u32, @intFromBool(memory_increment))            << 7) |
-                   (@as(u32, @intFromBool(circular_mode))               << 5) |
-                   (@as(u32, @intFromEnum(transfer_direction))          << 4) |
-                   (@as(u32, @intFromBool(error_interrupt))             << 3) |
-                   (@as(u32, @intFromBool(transfer_complete_interrupt)) << 1) |
-                   (@as(u32, @intFromBool(enable))                      << 0));
+    ccr_reg.* |=  ((@as(u32, @intFromEnum(config.priority))                   << 12) |
+                   (@as(u32, @intFromEnum(config.memory_size))                << 10) |
+                   (@as(u32, @intFromEnum(config.peripheral_size))             << 8) |
+                   (@as(u32, @intFromBool(config.memory_increment))            << 7) |
+                   (@as(u32, @intFromBool(config.circular_mode))               << 5) |
+                   (@as(u32, @intFromEnum(config.transfer_direction))          << 4) |
+                   (@as(u32, @intFromBool(config.error_interrupt))             << 3) |
+                   (@as(u32, @intFromBool(config.transfer_complete_interrupt)) << 1) |
+                   (@as(u32, @intFromBool(config.enable))                      << 0));
 }
 
 pub fn get_isr_reg(dma: DMA) *volatile u32 {

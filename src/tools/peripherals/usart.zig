@@ -20,6 +20,19 @@ const CR2_OFFSET:  u32 = 0x10;
 const CR3_OFFSET:  u32 = 0x14;
 
 
+const CONFIG = struct {
+    usart: USART,
+    dir: DIRECTION,
+    word_len: WORD_LEN,
+    parity: bool,
+    parity_type: PARITY_TYPE,
+    stop_bits: STOP_BITS,
+    enable_dma: bool,
+    brr: u12,
+    remap: bool
+};
+
+
 pub const USART = enum (u2){
     ONE =   0,
     TWO =   1,
@@ -31,69 +44,59 @@ pub const DIRECTION = enum(u1) {
     OUTPUT = 0
 };
 
-pub const WORD_LEN = enum(u1) {
+const WORD_LEN = enum(u1) {
     EIGHT = 0,
     NINE =  1
 };
 
-pub const PARITY_TYPE = enum(u1) {
+const PARITY_TYPE = enum(u1) {
     EVEN_OR_NULL = 0,
     ODD =          1
 };
 
-pub const STOP_BITS = enum(u2) {
+const STOP_BITS = enum(u2) {
     ONE =      0b00,
     HALF =     0b01,
     TWO =      0b10,
     ONE_HALF = 0b11,
 };
 
-pub const USART_MAP = [3]u32{
+const USART_MAP = [3]u32{
     PERIPHERAL + 0x0001_3800, // USART1
     PERIPHERAL + 0x0000_4400, //      2
     PERIPHERAL + 0x0000_4800, //      3
 };
 
 
-pub fn setup(
-    comptime usart: USART,
-    comptime dir: DIRECTION,
-    comptime word_len: WORD_LEN,
-    comptime parity: bool,
-    comptime parity_type: PARITY_TYPE,
-    comptime stop_bits: STOP_BITS,
-    comptime dma: bool,
-    comptime brr: u12,
-    comptime remap: bool
-) void {
-    const rcc_en_reg: *volatile u32 = switch (usart) {
+pub fn setup(comptime config: CONFIG) void {
+    const rcc_en_reg: *volatile u32 = switch (config.usart) {
         .ONE =>        @as(*volatile u32, @ptrFromInt(RCC_APB2ENR)),
         .TWO, .THREE => @as(*volatile u32, @ptrFromInt(RCC_APB1ENR)),
     };
 
-    const usart_offset: u5 = switch(usart) {
+    const usart_offset: u5 = switch(config.usart) {
         .ONE =>        14,
-        .TWO,.THREE => (@as(u5, @intCast(@intFromEnum(usart))) + 16),
+        .TWO,.THREE => (@as(u5, @intCast(@intFromEnum(config.usart))) + 16),
     };
 
-    const port: gpio.PORT = switch (usart) {
+    const port: gpio.PORT = switch (config.usart) {
         .ONE,.TWO => .A,
         .THREE =>    .B,
     };
     
     // Initially set to output pin but +1 if desired pin should be input
-    const pin: u32 = switch (usart) {
+    const pin: u32 = switch (config.usart) {
         .ONE   => 9,
         .TWO   => 2,
         .THREE => 10
-    } + @as(u32, @intFromEnum(dir));
+    } + @as(u32, @intFromEnum(config.dir));
 
-    const pin_setting: gpio.PIN_SETTING = switch(dir) {
+    const pin_setting: gpio.PIN_SETTING = switch(config.dir) {
         .INPUT =>  .{ .cnf = 0b01, .mode = 0b00 },
         .OUTPUT => .{ .cnf = 0b10, .mode = 0b01 }
     };
     
-    const dir_bit: u5 = switch (dir) {
+    const dir_bit: u5 = switch (config.dir) {
         .INPUT => 2,
         .OUTPUT => 3,
     };
@@ -103,36 +106,40 @@ pub fn setup(
     rcc_en_reg.* &= ~(@as(u32, 1) << usart_offset);
     rcc_en_reg.* |=  (@as(u32, 1) << usart_offset);
 
-    if (remap) {
-        afio.remap_usart(.ONE, dir, pin_setting);
+    if (config.remap) {
+        afio.remap_usart(.{
+            .usart = .ONE,
+            .dir = config.dir,
+            .pin_setting = pin_setting
+        });
     } else {
         gpio.port_setup(port, 1);
         gpio.pin_setup(port, pin, pin_setting.cnf, pin_setting.mode);
     }
 
     //                                   Mantissa       Frac
-    get_brr_reg(usart).* &= ~(@as(u32, 0b1111_1111_1111_1111) << 0);
-    get_brr_reg(usart).* |=  (@as(u32, brr) << 0);
+    get_brr_reg(config.usart).* &= ~(@as(u32, 0b1111_1111_1111_1111) << 0);
+    get_brr_reg(config.usart).* |=  (@as(u32, config.brr) << 0);
     
-    get_cr1_reg(usart).* &= ~((@as(u32, 0b1) << 13) |
+    get_cr1_reg(config.usart).* &= ~((@as(u32, 0b1) << 13) |
                               (@as(u32, 0b1) << 12) |
                               (@as(u32, 0b1) << 10) |
                               (@as(u32, 0b1) << 9) |
                               (@as(u32, 0b1) << dir_bit));
 
-    get_cr1_reg(usart).* |=  ((@as(u32, 0b1) << 13) |                      // Enable USART
-                              (@as(u32, @intFromEnum(word_len)) << 12) |   // Word Length
-                              (@as(u32, @intFromBool(parity)) << 10) |     // Parity
-                              (@as(u32, @intFromEnum(parity_type)) << 9) | // Even/Odd Parity
+    get_cr1_reg(config.usart).* |=  ((@as(u32, 0b1) << 13) |                      // Enable USART
+                              (@as(u32, @intFromEnum(config.word_len)) << 12) |   // Word Length
+                              (@as(u32, @intFromBool(config.parity)) << 10) |     // Parity
+                              (@as(u32, @intFromEnum(config.parity_type)) << 9) | // Even/Odd Parity
                               (@as(u32, 0b1) << dir_bit));                 // Transmitter/Receiver
 
     //                       Stop Bits
-    get_cr2_reg(usart).* &= ~((@as(u32, 0b11) << 12));
-    get_cr2_reg(usart).* |=  ((@as(u32, @intFromEnum(stop_bits)) << 12));
+    get_cr2_reg(config.usart).* &= ~((@as(u32, 0b11) << 12));
+    get_cr2_reg(config.usart).* |=  ((@as(u32, @intFromEnum(config.stop_bits)) << 12));
 
     //                       Enable DMA
-    get_cr3_reg(usart).* &= ~(@as(u32, 0b1) << dma_bit);
-    get_cr3_reg(usart).* |=  (@as(u32, @intFromBool(dma)) << dma_bit);
+    get_cr3_reg(config.usart).* &= ~(@as(u32, 0b1) << dma_bit);
+    get_cr3_reg(config.usart).* |=  (@as(u32, @intFromBool(config.enable_dma)) << dma_bit);
 }
 
 

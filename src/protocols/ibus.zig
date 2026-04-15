@@ -27,7 +27,7 @@ const CHANNEL_DATA = struct {
         self: CHANNEL_DATA,
         writer: anytype
     ) !void {
-        try writer.print("Left_Y: {d}, Left_X: {d}, Right_Y: {d}, Right_X: {d}, SWA: {}, SWB: {}", .{
+        try writer.print("Left_Y: {d:4}, Left_X: {d:4}, Right_Y: {d:4}, Right_X: {d:4}, SWA: {:5}, SWB: {:5}", .{
             self.left_y,
             self.left_x,
             self.right_y,
@@ -39,19 +39,44 @@ const CHANNEL_DATA = struct {
 };
 
 
-const frame_buffer_addr: u32 = 0x2000_0000; // 0x20000_0000 - 0x20000_0019
-const transmit_data_addr: u32 = 0x2000_0020;
-const frame_buffer: []volatile u8 = @as([*]volatile u8, @ptrFromInt(frame_buffer_addr))[0..32];
-const transmit_data: *volatile CHANNEL_DATA = @ptrFromInt(transmit_data_addr);
+const FRAME_SIZE: u32 = 32;
 
-comptime {
-    std.debug.assert(@sizeOf(CHANNEL_DATA) == 10);
-}
+const frame_buffer_addr: u32 = 0x2000_0000;
+const frame_buffer: []volatile u8 = @as([*]volatile u8, @ptrFromInt(frame_buffer_addr))[0..FRAME_SIZE];
+
+const transmit_data_addr: u32 = frame_buffer_addr + FRAME_SIZE;
+const transmit_data: *volatile CHANNEL_DATA = @ptrFromInt(transmit_data_addr);
 
 
 pub fn setup() void {
-    dma.setup(.ONE, .SIX, 32, @intFromPtr(usart.get_data_reg(.TWO)), frame_buffer_addr, .HIGH, .ONE, .ONE, true, true, .FROM_PERIPHERAL, false, false, true);
-    usart.setup(.TWO, .INPUT, .EIGHT, false, .EVEN_OR_NULL, .TWO, true, 0b0000_0000_1101_0000, false);
+    dma.setup(.{
+        .dma = .ONE,
+        .channel = .SIX,
+        .transfer_count = FRAME_SIZE,
+        .peripheral_addr = @intFromPtr(usart.get_data_reg(.TWO)),
+        .memory_addr = frame_buffer_addr,
+        .priority = .HIGH,
+        .memory_size = .ONE,
+        .peripheral_size = .ONE,
+        .memory_increment = true,
+        .circular_mode = true,
+        .transfer_direction = .FROM_PERIPHERAL,
+        .error_interrupt = false,
+        .transfer_complete_interrupt = false,
+        .enable = true
+    });
+
+    usart.setup(.{
+        .usart = .TWO,
+        .dir = .INPUT,
+        .word_len = .EIGHT,
+        .parity = false,
+        .parity_type = .EVEN_OR_NULL,
+        .stop_bits = .TWO,
+        .enable_dma = true,
+        .brr = 0b0000_0000_1101_0000,
+        .remap = false
+    });
 }
 
 pub fn decode() !void {

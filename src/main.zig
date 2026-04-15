@@ -102,7 +102,7 @@ fn dshot_test() void {
 fn ibus_test() void {
     while (true) : (ibus.decode() catch break) {
         debug.print("{f}\r", .{ ibus.get_transmit_data() });
-        time.sleep(1000);
+        time.sleep(100);
     }
 }
 

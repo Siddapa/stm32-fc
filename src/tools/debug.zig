@@ -8,10 +8,17 @@ const RESET_BUF = [_]u8{ 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0
 
 
 pub fn setup() void {
-    // Decoding from USART RX1 - A10
-    // BRR is tuned to 24MHz, matching timer for DSHOT
-    
-    usart.setup(.ONE, .OUTPUT, .EIGHT, false, .EVEN_OR_NULL, .ONE, false, 0b1101_0000, true);
+    usart.setup(.{
+        .usart = .ONE,
+        .dir = .OUTPUT,
+        .word_len = .EIGHT,
+        .parity = false,
+        .parity_type = .EVEN_OR_NULL,
+        .stop_bits = .ONE,
+        .enable_dma = false,
+        .brr = 0b0000_0000_1101_0000,
+        .remap = true
+    });
 }
 
 pub fn print(comptime str: []const u8, args: anytype) void {
