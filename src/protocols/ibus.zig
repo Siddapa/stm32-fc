@@ -50,8 +50,8 @@ comptime {
 
 
 pub fn setup() void {
-    dma.setup(.ONE, .SIX, 32, @intFromPtr(usart.get_data_reg(.TWO)), frame_buffer_addr, .HIGH, .ONE, .ONE, true, true, .FROM_PERIPHERAL, false, true, true);
-    usart.setup(.TWO, .INPUT, .EIGHT, false, .EVEN_OR_NULL, .TWO, true, 0b0000_0000_0100_0101, false);
+    dma.setup(.ONE, .SIX, 32, @intFromPtr(usart.get_data_reg(.TWO)), frame_buffer_addr, .HIGH, .ONE, .ONE, true, true, .FROM_PERIPHERAL, false, false, true);
+    usart.setup(.TWO, .INPUT, .EIGHT, false, .EVEN_OR_NULL, .TWO, true, 0b0000_0000_1101_0000, false);
 }
 
 pub fn decode() !void {

@@ -31,28 +31,24 @@ export fn _start() callconv(.c) void {
     debug.reset_terminal();
 
     debug.print("Setup onboard LED...\n", .{});
-    gpio.port_setup(.C, 1);
-    gpio.pin_setup(.C, 13, 0b00, 0b11);
-    gpio.set_pin(.C, 13, 0);
 
-    gpio.port_setup(.A, 1);
-    gpio.pin_setup(.A, 7, 0b00, 0b11);
-    gpio.set_pin(.A, 7, 1);
+    // gpio.pin_setup(.C, 13, 0b00, 0b11);
+    // gpio.set_pin(.C, 13, 0);
 
-    debug.print("Setup DMA for iBUS Receiver...\n", .{});
+    // gpio.port_setup(.A, 1);
+    // gpio.pin_setup(.A, 7, 0b00, 0b11);
+    // gpio.set_pin(.A, 7, 1);
+
+    debug.print("Setup iBUS Receiver...\n", .{});
     ibus.setup();
- 
-    dshot.setup();
-    
-    dshot.arm();
 
-    // var data = ibus.get_transmit_data();
-    // debug.print("{f}\n", .{data});
-    // while (data.swa == false) : (ibus.decode() catch unreachable) {
-    //     data = ibus.get_transmit_data();
-    //     debug.print("{f}\r", .{data});
-    //     time.sleep(10000);
-    // }
+    // debug_test();
+ 
+    // dshot.setup();
+
+    ibus_test();
+    
+    // dshot.arm();
 
 }
 
@@ -104,9 +100,10 @@ fn dshot_test() void {
 }
 
 fn ibus_test() void {
-    ibus.decode() catch debug.print("Corrupted iBUS frame!\n", .{});
-
-    debug.print("{f}\r", .{ ibus.get_transmit_data() });
+    while (true) : (ibus.decode() catch break) {
+        debug.print("{f}\r", .{ ibus.get_transmit_data() });
+        time.sleep(1000);
+    }
 }
 
 fn debug_test() void {
@@ -131,7 +128,6 @@ fn blinky() void {
 
 // TODO Make an "rcc" and "flash" tool
 fn rcc_setup() void {
-    // Overclock system to 64MHz while keeping peripherals at 8MHz
     const flash_acr_reg: *volatile u32 = @ptrFromInt(FLASH_ACR);
     flash_acr_reg.* &= ~((@as(u32, 0b1) << 4) | (@as(u32, 0b111) << 0));
     flash_acr_reg.* |=  ((@as(u32, 0b1) << 4) | (@as(u32, 0b010) << 0));
@@ -148,7 +144,7 @@ fn rcc_setup() void {
                         (@as(u32, 0b1)    << 17) | // HSE -> PLL
                         (@as(u32, 0b1)    << 16) | // PLL Source (HSE)
                         (@as(u32, 0b000)  << 11) | // APB2 Prescaler
-                        (@as(u32, 0b110)  << 8) |  // APB1 Prescaler
+                        (@as(u32, 0b000)  << 8) |  // APB1 Prescaler
                         (@as(u32, 0b0000) << 4) |  // AHB Prescaler
                         (@as(u32, 0b10)   << 0));  // SYCLK
 

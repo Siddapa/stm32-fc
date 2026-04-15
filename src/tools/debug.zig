@@ -11,7 +11,7 @@ pub fn setup() void {
     // Decoding from USART RX1 - A10
     // BRR is tuned to 24MHz, matching timer for DSHOT
     
-    usart.setup(.ONE, .OUTPUT, .EIGHT, false, .EVEN_OR_NULL, .ONE, false, 0b11010000, true);
+    usart.setup(.ONE, .OUTPUT, .EIGHT, false, .EVEN_OR_NULL, .ONE, false, 0b1101_0000, true);
 }
 
 pub fn print(comptime str: []const u8, args: anytype) void {
