@@ -1,8 +1,8 @@
 const std = @import("std");
 
-const usart = @import("../tools/peripherals/usart.zig");
-const gpio = @import("../tools/peripherals/gpio.zig");
-const dma = @import("../tools/peripherals/dma.zig");
+const usart = @import("../peripherals/usart.zig");
+const gpio = @import("../peripherals/gpio.zig");
+const dma = @import("../peripherals/dma.zig");
 const debug = @import("../tools/debug.zig");
 const Err = @import("../tools/error.zig").Err;
 

@@ -1,13 +1,15 @@
 const debug = @import("tools/debug.zig");
 const time = @import("tools/time.zig");
 const Err = @import("tools/error.zig").Err;
-const gpio = @import("tools/peripherals/gpio.zig");
-const dma = @import("tools/peripherals/dma.zig");
-const usart = @import("tools/peripherals/usart.zig");
-const timer = @import("tools/peripherals/timer.zig");
+
+const gpio = @import("peripherals/gpio.zig");
+const dma = @import("peripherals/dma.zig");
+const usart = @import("peripherals/usart.zig");
+const timer = @import("peripherals/timer.zig");
 
 const ibus = @import("protocols/ibus.zig");
 const dshot = @import("protocols/dshot.zig");
+const imu = @import("protocols/imu.zig");
 
 const PERIPHERAL: u32 = 0x4000_0000;
 const RCC: u32 = PERIPHERAL + 0x0002_1000;
@@ -26,30 +28,25 @@ const FLASH_ACR: u32 = 0x4002_2000;
 export fn _start() callconv(.c) void {
     rcc_setup();
 
-    // Terminal printing
     debug.setup();
     debug.reset_terminal();
 
-    debug.print("Setup onboard LED...\n", .{});
-
+    debug.print("Setup onboard LED\n", .{});
     // gpio.pin_setup(.C, 13, 0b00, 0b11);
     // gpio.set_pin(.C, 13, 0);
-
-    // gpio.port_setup(.A, 1);
-    // gpio.pin_setup(.A, 7, 0b00, 0b11);
-    // gpio.set_pin(.A, 7, 1);
-
-    debug.print("Setup iBUS Receiver...\n", .{});
+    
+    debug.print("Setup iBUS Receiver\n", .{});
     ibus.setup();
 
-    // debug_test();
- 
-    // dshot.setup();
+    debug.print("Setup IMU\n", .{});
+    ibus.setup();
 
-    ibus_test();
-    
-    // dshot.arm();
+    imu.setup();
 
+    time.sleep(2000);
+
+    imu_test();
+    // ibus_test();
 }
 
 fn ibus_dshot_test() void {
@@ -99,10 +96,16 @@ fn dshot_test() void {
     time.sleep(1000);
 }
 
+fn imu_test() void {
+    while (true): (imu.decode()) {
+        debug.print("TX: {any}      RX: {any}\r", .{ imu.get_tx_buffer(), imu.get_rx_buffer() });
+    }
+}
+
 fn ibus_test() void {
     while (true) : (ibus.decode() catch break) {
         debug.print("{f}\r", .{ ibus.get_transmit_data() });
-        time.sleep(100);
+        // time.sleep(100);
     }
 }
 

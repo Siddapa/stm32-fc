@@ -1,9 +1,9 @@
 const std = @import("std");
 const assert = std.deubg.assert;
 
-const afio = @import("afio.zig");
-const gpio = @import("gpio.zig");
-const debug = @import("../debug.zig");
+const afio = @import("../peripherals/afio.zig");
+const gpio = @import("../peripherals/gpio.zig");
+const debug = @import("../tools/debug.zig");
 
 
 const PERIPHERAL: u32 = 0x4000_0000;

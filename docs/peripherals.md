@@ -16,24 +16,27 @@
     - BRR Value: APB1 @ 115,200 bps -> 208
 - DMA 1, Channel 6 
 - Memory Zones:
-    - Starting Addr - ```0x2000_0000```
-    - Frame - ```0x2000_0000 - 0x2000_0020```
-        - ```(Starting Addr) - (Starting Addr + 32)```
+    - Frame - `0x2000_0000 - 0x2000_0020`
         - 32 bytes for all transmit data, including non-relevant channels
-    - Transmit Data - ```0x2000_0020 - 0x2000_002C```
-        - ```(Starting Addr + 32) - (Starting Addr + 32 + 10)```
-        - Padded 12 bytes for CHANNEL_DATA struct, could use ```packed``` to make it smaller
+    - Transmit Data - `0x2000_0020 - 0x2000_002C`
+        - Padded 12 bytes for CHANNEL_DATA struct, could use `packed` to make it smaller
 
 
 ## DSHOT
 - Timer 1, A8-11
 - DMA 1, Channel 5
-- TIM1 Counter Values for Bit Encoding: ```0x2000_0030 - 0x2000_0038``` ((16 frame bits + 2 bit padding) * 4 motors )
+- Memory Zone:
+    - TIM1 Counter Values for Bit Encoding: `0x2000_0030 - 0x2000_0039` ((16 frame bits + 2 bit padding) * 4 motors )
 
 
 ## Gryo
-- SPI 1 MOSI: A7
-- SPI 1 MISO: A6
-- SPI 1 CLK: A5
-- DMA 1, Channel 2
-- ```0x2000_0040 - 0x2000_0040``` 
+- SPI 1: A5-A7 (CLK, MISO, MOSI)
+- DMA Mappings:
+    - DMA 1, Channel 2 for RX
+    - DMA 1, Channel 3 for TX
+- Memory Zones:
+    - TX Buffer - `0x2000_0040 - 0x2000_004F`
+        - 1 byte for imu address + 14 bytes of empty data
+    - RX Buffer - `0x2000_0050 - 0x2000_005E`
+        - 14 bytes of imu data (6 accel axis, 6 gryo axis, and 2 temps)
+    - RX Data - `0x2000_0060 - 0x2000_006E`

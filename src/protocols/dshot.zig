@@ -2,9 +2,9 @@ const std = @import("std");
 
 const Err = @import("../tools/error.zig");
 const time = @import("../tools/time.zig");
-const timer = @import("../tools/peripherals/timer.zig");
-const gpio = @import("../tools/peripherals/gpio.zig");
-const dma = @import("../tools/peripherals/dma.zig");
+const timer = @import("../peripherals/timer.zig");
+const gpio = @import("../peripherals/gpio.zig");
+const dma = @import("../peripherals/dma.zig");
 const debug = @import("../tools/debug.zig");
 
 // TODO Bit time might be completely arbitrary and not tied to a specific DSHOT version

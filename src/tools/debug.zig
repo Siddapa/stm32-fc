@@ -1,5 +1,5 @@
 const std = @import("std");
-const usart = @import("peripherals/usart.zig");
+const usart = @import("../peripherals/usart.zig");
 
 
 // ANSI Escpae sequences to reset putty terminal

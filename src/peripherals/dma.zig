@@ -1,4 +1,4 @@
-const debug = @import("../debug.zig");
+const debug = @import("../tools/debug.zig");
 
 const PERIPHERAL: u32 = 0x4000_0000;
 const RCC: u32 = PERIPHERAL + 0x0002_1000;

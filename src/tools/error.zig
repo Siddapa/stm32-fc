@@ -1,4 +1,4 @@
-const gpio = @import("peripherals/gpio.zig");
+const gpio = @import("../peripherals/gpio.zig");
 
 // TODO Log errors
 // TODO More descriptive display of errors using bit-buffer of LEDs

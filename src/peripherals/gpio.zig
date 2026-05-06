@@ -1,7 +1,7 @@
 const std = @import("std");
 const assert = std.debug.assert;
 
-const Err = @import("../error.zig").Err;
+const Err = @import("../tools/error.zig").Err;
 
 
 const PERIPHERAL: u32 = 0x4000_0000;
@@ -52,6 +52,7 @@ pub fn port_setup(comptime port: PORT, comptime output: u32) void {
     apb2_addr.* |= output << port_offset;
 }
 
+// TODO Replace with enums
 pub fn pin_setup(comptime port: PORT, comptime pin: u4, comptime cnf: u32, comptime mode: u32) void {
     comptime {
         assert(setting_bounds(cnf));
